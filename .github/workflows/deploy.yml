@@ -1,0 +1,40 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create exclude list for sync
+        run: |
+          printf ".git\nnode_modules\nserver.pid\nfrontend.pid\nserver.log\nfrontend.log\napp.log\nbackend.log\n" > .rsyncignore
+
+      - name: Upload files to server via rsync
+        uses: burnett01/rsync-deployments@v7.0.0
+        with:
+          switches: -avzr --delete --exclude-from=.rsyncignore
+          path: .
+          remote_path: ${{ secrets.REMOTE_DIR }}
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          remote_port: ${{ secrets.SSH_PORT }}
+
+      - name: Run deploy script on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd "$REMOTE_DIR"
+            # 执行一键部署：安装依赖、构建前端、启动后端与前端
+            python3 deploy.py || python3 deploy.py --start

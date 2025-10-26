@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* 基础移动端优化 */
+html, body, #root {
+  height: 100%;
+}
+body {
+  /* 保持由页面/布局控制背景，不在 body 强制白色 */
+  /* 避免 @apply 在部分工具链下报错，直接使用原生 CSS */
+  color: #111827; /* 等效于 tailwind 的 text-gray-900 */
+}
+
+/* 统一段落字体与行内文本大小（与父元素一致） */
+p {
+  font-size: inherit;
+}
+
+/*（移除诊断区块的全局样式，避免影响页面其他部分）*/
