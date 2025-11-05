@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { seedUsers, getUsers, setCurrentUser, validateLogin, getCurrentUser } from '../store/users'
 
@@ -17,6 +17,23 @@ export default function Login() {
     lastError: ''
   })
 
+  const extractNum = (id) => {
+    const m = String(id).match(/(\d+)/)
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER
+  }
+
+  const orderUsers = (list) => {
+    if (!Array.isArray(list)) return []
+    const admin = list.find(u => u.role === 'admin')
+    const a1 = list.find(u => u.role === 'approver1')
+    const a2 = list.find(u => u.role === 'approver2')
+    const a3 = list.find(u => u.role === 'approver3')
+    const staffSorted = list.filter(u => u.role === 'staff').sort((x, y) => extractNum(x.id) - extractNum(y.id))
+    const prioritized = [admin, a1, a2, a3, ...staffSorted.slice(0, 15)].filter(Boolean)
+    const remaining = list.filter(u => !prioritized.includes(u))
+    return [...prioritized, ...remaining]
+  }
+
   useEffect(() => {
     (async () => {
       // 若已登录，按角色自动分流，避免误入错误页面
@@ -33,8 +50,9 @@ export default function Login() {
       }
       try {
         const list = await getUsers()
-        setUsers(list)
-        setId(list[0]?.id || '')
+        const ordered = orderUsers(list)
+        setUsers(ordered)
+        setId(ordered[0]?.id || '')
         setDiag(d => ({
           ...d,
           usersCount: Array.isArray(list) ? list.length : 0,
@@ -70,7 +88,7 @@ export default function Login() {
       <div className="w-full max-w-sm bg-white/95 backdrop-blur rounded-xl shadow-lg p-5 border border-white/30">
         <div className="mb-4 text-center">
           <h2 className="text-xl font-semibold text-gray-900 text-center">账号登录</h2>
-          <p className="text-xs text-gray-500 mt-1 text-center">请选择账号并输入密码继续</p>
+          <p className="text-xs text-gray-500 mt-1 text-center hide-in-wechat">请选择账号并输入密码继续</p>
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
           <div>

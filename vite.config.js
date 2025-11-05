@@ -4,14 +4,20 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    // 移除不稳定的 react-compiler Babel 插件，修复 "z is not a function" 运行时错误
     react(),
   ],
+  build: {
+    // Output directory for the build
+    outDir: 'build_tmp',
+    // Disable emptying output directory to prevent issues with .user.ini files
+    emptyOutDir: false,
+  },
   server: {
-    port: 6667,
+    port: 5173,
     proxy: {
-      '/api': 'http://localhost:6666',
-      '/uploads': 'http://localhost:6666',
+      '/api': 'http://127.0.0.1:6666',
+      '/uploads': 'http://127.0.0.1:6666',
     },
   },
 })
+

@@ -26,12 +26,12 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 def main():
     os.chdir(ROOT)
 
-    # 若前端构建产物缺失，自动构建（默认 API 指向本机后端）
-    dist_index = os.path.join(ROOT, 'dist', 'index.html')
+    # 若前端构建产物缺失，自动构建（默认 API 指向外网后端）
+    dist_index = os.path.join(ROOT, 'build_tmp', 'index.html')
     if not os.path.exists(dist_index):
         print('未检测到 dist/index.html，自动执行前端构建…')
         ensure_node()
-        build_frontend(api_base='http://localhost:6666/api')
+        build_frontend(api_base='http://8.163.7.207:6666/api')
 
     # 清理无效的 PID 文件
     spid = read_pid(SERVER_PID)
@@ -52,13 +52,13 @@ def main():
         # 给后端预留片刻启动时间
         time.sleep(0.8)
 
-    # 再启动前端（固定 6667）
+    # 再启动前端（固定 60）
     if fpid and is_running(fpid):
         print(f"前端已运行，PID={fpid}")
     else:
-        start_frontend(port=6667)
+        start_frontend(port=60)
 
-    print('启动完成：后端 6666、前端 6667。若使用花生壳，请确保 443 映射到 127.0.0.1:6667。')
+    print('启动完成：后端 6666、前端 60（build_tmp）。若使用花生壳/反向代理，请将 60 映射到当前前端进程或通过 Nginx 配置对外访问。')
 
 
 if __name__ == '__main__':

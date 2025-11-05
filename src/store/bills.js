@@ -1,5 +1,6 @@
 import { getApprovalOrder, getCurrentUser } from './users';
-const API_BASE = (import.meta?.env?.VITE_API_BASE) || '/api'
+import { getApiBase } from './api'
+const API_BASE = getApiBase()
 
 function authHeaders(base = {}) {
   const u = getCurrentUser()

@@ -1,3 +1,4 @@
+import React from 'react'
 import { useEffect, useRef, useState } from 'react'
 
 export default function Drawer({ open, onClose, children, duration = 300 }) {

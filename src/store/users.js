@@ -1,6 +1,7 @@
 // 后端数据库改为 Express + sqlite3，仅当前登录态使用 localStorage
 const CURRENT_USER_KEY = 'fa_current_user';
-const API_BASE = (import.meta?.env?.VITE_API_BASE) || '/api'
+import { getApiBase } from './api'
+const API_BASE = getApiBase()
 
 function authHeaders(base = {}) {
   const u = getCurrentUser()
@@ -13,8 +14,22 @@ export const defaultUsers = [
   { id: 'approver1', name: '一级审核', role: 'approver1', password: '123456' },
   { id: 'approver2', name: '二级审核', role: 'approver2', password: '123456' },
   { id: 'approver3', name: '三级审核', role: 'approver3', password: '123456' },
-  { id: 'approver4', name: '四级审核', role: 'approver4', password: '123456' },
-  { id: 'approver5', name: '五级审核', role: 'approver5', password: '123456' },
+  // 工作人员（可由管理员修改姓名）
+  { id: 'user01', name: '用户1', role: 'staff', password: '123456' },
+  { id: 'user02', name: '用户2', role: 'staff', password: '123456' },
+  { id: 'user03', name: '用户3', role: 'staff', password: '123456' },
+  { id: 'user04', name: '用户4', role: 'staff', password: '123456' },
+  { id: 'user05', name: '用户5', role: 'staff', password: '123456' },
+  { id: 'user06', name: '用户6', role: 'staff', password: '123456' },
+  { id: 'user07', name: '用户7', role: 'staff', password: '123456' },
+  { id: 'user08', name: '用户8', role: 'staff', password: '123456' },
+  { id: 'user09', name: '用户9', role: 'staff', password: '123456' },
+  { id: 'user10', name: '用户10', role: 'staff', password: '123456' },
+  { id: 'user11', name: '用户11', role: 'staff', password: '123456' },
+  { id: 'user12', name: '用户12', role: 'staff', password: '123456' },
+  { id: 'user13', name: '用户13', role: 'staff', password: '123456' },
+  { id: 'user14', name: '用户14', role: 'staff', password: '123456' },
+  { id: 'user15', name: '用户15', role: 'staff', password: '123456' },
   { id: 'accountant', name: '会计', role: 'accountant', password: '123456' },
 ];
 
@@ -74,7 +89,7 @@ export function getApprovalOrder() {
 export async function setApprovalOrder(order) {
   const res = await fetch(`${API_BASE}/approval-order`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ order })
   })
   if (!res.ok) throw new Error('保存审批顺序失败')

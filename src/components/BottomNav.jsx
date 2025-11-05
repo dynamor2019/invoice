@@ -1,3 +1,4 @@
+import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { getCurrentUser } from '../store/users'
 
@@ -15,7 +16,7 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
       <div className="flex px-2">
         <NavLink to="/home" className={linkClass}>工作台</NavLink>
-        <NavLink to="/new" className={linkClass}>新建票据</NavLink>
+        <NavLink to="/new" className={linkClass}>新建账单</NavLink>
         {user?.role === 'accountant' && (
           <NavLink to="/archive" className={linkClass}>归档</NavLink>
         )}

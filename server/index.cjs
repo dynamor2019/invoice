@@ -126,6 +126,22 @@ async function ensureSchema() {
     time TEXT,
     diff TEXT
   )`)
+
+  // 新增：票据事由分级（一级分类 + 二级项目）
+  await run(`CREATE TABLE IF NOT EXISTS reason_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    sort INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'enabled'
+  )`)
+  await run(`CREATE TABLE IF NOT EXISTS reason_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    categoryId INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    sort INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'enabled',
+    FOREIGN KEY(categoryId) REFERENCES reason_categories(id)
+  )`)
 }
 
 async function seedIfEmpty() {
@@ -136,8 +152,22 @@ async function seedIfEmpty() {
       { id: 'approver1', name: '一级审核', role: 'approver1', password: '123456' },
       { id: 'approver2', name: '二级审核', role: 'approver2', password: '123456' },
       { id: 'approver3', name: '三级审核', role: 'approver3', password: '123456' },
-      { id: 'approver4', name: '四级审核', role: 'approver4', password: '123456' },
-      { id: 'approver5', name: '五级审核', role: 'approver5', password: '123456' },
+      // 工作人员（可由管理员修改姓名）
+      { id: 'user01', name: '用户1', role: 'staff', password: '123456' },
+      { id: 'user02', name: '用户2', role: 'staff', password: '123456' },
+      { id: 'user03', name: '用户3', role: 'staff', password: '123456' },
+      { id: 'user04', name: '用户4', role: 'staff', password: '123456' },
+      { id: 'user05', name: '用户5', role: 'staff', password: '123456' },
+      { id: 'user06', name: '用户6', role: 'staff', password: '123456' },
+      { id: 'user07', name: '用户7', role: 'staff', password: '123456' },
+      { id: 'user08', name: '用户8', role: 'staff', password: '123456' },
+      { id: 'user09', name: '用户9', role: 'staff', password: '123456' },
+      { id: 'user10', name: '用户10', role: 'staff', password: '123456' },
+      { id: 'user11', name: '用户11', role: 'staff', password: '123456' },
+      { id: 'user12', name: '用户12', role: 'staff', password: '123456' },
+      { id: 'user13', name: '用户13', role: 'staff', password: '123456' },
+      { id: 'user14', name: '用户14', role: 'staff', password: '123456' },
+      { id: 'user15', name: '用户15', role: 'staff', password: '123456' },
       { id: 'accountant', name: '会计', role: 'accountant', password: '123456' },
     ]
     for (const u of defaults) {
@@ -146,10 +176,18 @@ async function seedIfEmpty() {
   }
   const orderCount = (await all(`SELECT COUNT(*) as c FROM approval_order`))[0].c
   if (orderCount === 0) {
-    const order = ['approver1', 'approver2', 'approver3', 'approver4', 'approver5']
+    const order = ['approver1', 'approver2', 'approver3']
     for (let i = 0; i < order.length; i++) {
       await run(`INSERT INTO approval_order (role, sort) VALUES (?, ?)`, [order[i], i])
     }
+  }
+
+  // 事由分级：默认预置“其他”/“未分类”
+  const rcCount = (await all(`SELECT COUNT(*) as c FROM reason_categories`))[0]?.c || 0
+  if (rcCount === 0) {
+    const r = await run(`INSERT INTO reason_categories (name, sort, status) VALUES (?, ?, 'enabled')`, ['其他', 999])
+    const catId = r.lastID
+    await run(`INSERT INTO reason_items (categoryId, name, sort, status) VALUES (?, ?, ?, 'enabled')`, [catId, '未分类', 999])
   }
 }
 
@@ -262,9 +300,64 @@ app.get('/api/dev/users', async (req, res) => {
     res.status(500).json({ error: e.message })
   }
 })
+
+// DEV ONLY: reset users and approval order to new defaults (3 approvers + 15 staff + accountant)
+app.post('/api/dev/reset-defaults', async (req, res) => {
+  if (String(process.env.ALLOW_DEV_RESET || '') !== '1') {
+    return res.status(403).json({ error: '未启用开发接口' })
+  }
+  try {
+    const defaults = [
+      { id: 'admin', name: '管理员', role: 'admin', password: 'admin123' },
+      { id: 'approver1', name: '一级审核', role: 'approver1', password: '123456' },
+      { id: 'approver2', name: '二级审核', role: 'approver2', password: '123456' },
+      { id: 'approver3', name: '三级审核', role: 'approver3', password: '123456' },
+      { id: 'user01', name: '用户1', role: 'staff', password: '123456' },
+      { id: 'user02', name: '用户2', role: 'staff', password: '123456' },
+      { id: 'user03', name: '用户3', role: 'staff', password: '123456' },
+      { id: 'user04', name: '用户4', role: 'staff', password: '123456' },
+      { id: 'user05', name: '用户5', role: 'staff', password: '123456' },
+      { id: 'user06', name: '用户6', role: 'staff', password: '123456' },
+      { id: 'user07', name: '用户7', role: 'staff', password: '123456' },
+      { id: 'user08', name: '用户8', role: 'staff', password: '123456' },
+      { id: 'user09', name: '用户9', role: 'staff', password: '123456' },
+      { id: 'user10', name: '用户10', role: 'staff', password: '123456' },
+      { id: 'user11', name: '用户11', role: 'staff', password: '123456' },
+      { id: 'user12', name: '用户12', role: 'staff', password: '123456' },
+      { id: 'user13', name: '用户13', role: 'staff', password: '123456' },
+      { id: 'user14', name: '用户14', role: 'staff', password: '123456' },
+      { id: 'user15', name: '用户15', role: 'staff', password: '123456' },
+      { id: 'accountant', name: '会计', role: 'accountant', password: '123456' },
+    ]
+    await run(`DELETE FROM users`)
+    for (const u of defaults) {
+      await run(`INSERT INTO users (id, name, role, password) VALUES (?, ?, ?, ?)`, [u.id, u.name, u.role, u.password])
+    }
+    const order = ['approver1', 'approver2', 'approver3']
+    await run(`DELETE FROM approval_order`)
+    for (let i = 0; i < order.length; i++) {
+      await run(`INSERT INTO approval_order (role, sort) VALUES (?, ?)`, [order[i], i])
+    }
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 app.get('/api/me', auth, (req, res) => {
   res.json({ id: req.user?.id || null, role: req.user?.role || null })
 })
+
+// 工具：将审批角色格式化为“姓名(工号)”
+async function formatAccountLabelForRole(role) {
+  try {
+    const rows = await all(`SELECT id, name FROM users WHERE role = ? LIMIT 1`, [String(role)])
+    const u = rows[0]
+    if (u && u.id && u.name) return `${u.name}(${u.id})`
+    return String(role || '')
+  } catch {
+    return String(role || '')
+  }
+}
 
 // Pending bills for a specific role (server-side filtered)
 app.get('/api/todos/:role', async (req, res) => {
@@ -310,6 +403,111 @@ app.put('/api/setting/companyName', auth, async (req, res) => {
   }
 })
 
+// 审批免审阈值：读取
+app.get('/api/setting/approvalThresholds', async (req, res) => {
+  try {
+    const rows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
+    let v = {}
+    try { v = JSON.parse(rows[0]?.value || '{}') } catch { v = {} }
+    const out = {
+      approver1: Number(v.approver1) || 0,
+      approver2: Number(v.approver2) || 0,
+      approver3: Number(v.approver3) || 0,
+    }
+    res.json(out)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 审批免审阈值：更新（仅管理员）
+app.put('/api/setting/approvalThresholds', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const body = req.body || {}
+    const payload = {
+      approver1: Number(body.approver1 ?? body?.thresholds?.approver1 ?? 0) || 0,
+      approver2: Number(body.approver2 ?? body?.thresholds?.approver2 ?? 0) || 0,
+      approver3: Number(body.approver3 ?? body?.thresholds?.approver3 ?? 0) || 0,
+    }
+    await run(`REPLACE INTO settings (key, value) VALUES ('approvalThresholds', ?)`, [JSON.stringify(payload)])
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 事由层级：读取（以 JSON 形式存储在 settings 表）
+app.get('/api/setting/reasonHierarchy', async (req, res) => {
+  try {
+    const rows = await all(`SELECT value FROM settings WHERE key = 'reasonHierarchy' LIMIT 1`)
+    let v = []
+    try { v = JSON.parse(rows[0]?.value || '[]') } catch { v = [] }
+    // 兼容返回结构：数组或对象包装
+    const out = Array.isArray(v) ? v : (Array.isArray(v?.hierarchy) ? v.hierarchy : [])
+    res.json({ hierarchy: out })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 事由层级：更新（仅管理员）
+app.put('/api/setting/reasonHierarchy', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const hierarchy = Array.isArray(req.body?.hierarchy) ? req.body.hierarchy : []
+    // 仅存储必要字段，避免过大数据
+    const normalized = hierarchy.map(n => ({
+      text: String(n.text || ''),
+      level: Number(n.level) || 0,
+    }))
+    await run(`REPLACE INTO settings (key, value) VALUES ('reasonHierarchy', ?)`, [JSON.stringify(normalized)])
+    // 同步到票据事由（一级分类 + 二级项目）
+    // 策略：level=0 为一级分类；level>=1 视为二级项目，归属最近的一级分类；
+    // 若开头出现二级项目，将先创建一个默认分类“其他”。若某分类没有任何项目，则补充一个“未分类”。
+    await run(`DELETE FROM reason_items`)
+    await run(`DELETE FROM reason_categories`)
+    let catSort = 0
+    let lastCatId = null
+    let itemSort = 0
+    const categories = [] // { id, hasItem }
+    for (const n of normalized) {
+      const text = (String(n.text || '').trim() || '未命名')
+      const lvl = Number(n.level) || 0
+      if (lvl <= 0) {
+        const r = await run(`INSERT INTO reason_categories (name, sort, status) VALUES (?, ?, 'enabled')`, [text, catSort++])
+        lastCatId = r.lastID
+        itemSort = 0
+        categories.push({ id: lastCatId, hasItem: false })
+      } else {
+        if (!lastCatId) {
+          const rcat = await run(`INSERT INTO reason_categories (name, sort, status) VALUES (?, ?, 'enabled')`, ['其他', catSort++])
+          lastCatId = rcat.lastID
+          itemSort = 0
+          categories.push({ id: lastCatId, hasItem: false })
+        }
+        await run(`INSERT INTO reason_items (categoryId, name, sort, status) VALUES (?, ?, ?, 'enabled')`, [lastCatId, text, itemSort++])
+        const cur = categories[categories.length - 1]
+        if (cur) cur.hasItem = true
+      }
+    }
+    // 为没有项目的分类补充一个“未分类”项
+    for (const c of categories) {
+      if (!c.hasItem) {
+        await run(`INSERT INTO reason_items (categoryId, name, sort, status) VALUES (?, ?, ?, 'enabled')`, [c.id, '未分类', 0, 'enabled'])
+      }
+    }
+    // 若没有任何分类，建立默认“其他/未分类”
+    if (categories.length === 0) {
+      const r = await run(`INSERT INTO reason_categories (name, sort, status) VALUES (?, ?, 'enabled')`, ['其他', 0])
+      await run(`INSERT INTO reason_items (categoryId, name, sort, status) VALUES (?, ?, ?, 'enabled')`, [r.lastID, '未分类', 0, 'enabled'])
+    }
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // 简单 JWT 校验中间件
 function auth(req, res, next) {
   const h = String(req.headers['authorization'] || '')
@@ -328,9 +526,21 @@ app.put('/api/users', auth, async (req, res) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
   const { users = [] } = req.body
   try {
+    // 读取当前库中密码以便保留（防止前端未传 password 导致密码被清空）
+    const rows = await all(`SELECT id, role, password FROM users`)
+    const pwdMap = {}
+    for (const r of rows) pwdMap[String(r.id)] = { role: String(r.role), password: String(r.password || '') }
     await run(`DELETE FROM users`)
     for (const u of users) {
-      await run(`INSERT INTO users (id, name, role, password) VALUES (?, ?, ?, ?)`, [u.id, u.name, u.role, u.password])
+      const id = String(u.id)
+      const name = String(u.name)
+      const role = String(u.role)
+      const existing = pwdMap[id]
+      // 优先使用传入的密码；否则保留原密码；再否则按角色使用默认值
+      const password = (u.password != null && String(u.password) !== '')
+        ? String(u.password)
+        : (existing && existing.password ? existing.password : (id === 'admin' ? 'admin123' : '123456'))
+      await run(`INSERT INTO users (id, name, role, password) VALUES (?, ?, ?, ?)`, [id, name, role, password])
     }
     res.json({ ok: true })
   } catch (e) {
@@ -413,10 +623,22 @@ app.post('/api/bill', auth, async (req, res) => {
     const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
     let order = orows.map(r => r.role)
     if (!Array.isArray(order) || order.length === 0) {
-      order = ['approver1','approver2','approver3','approver4','approver5']
+      order = ['approver1','approver2','approver3']
     }
+    // 读取免审阈值并按金额裁剪审批步骤
+    let thr = {}
+    try {
+      const rows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
+      thr = JSON.parse(rows[0]?.value || '{}')
+    } catch { thr = {} }
+    const amt = Number(amount) || 0
+    const filtered = order.filter(role => {
+      if (!/^approver[123]$/.test(role)) return true
+      const limit = Number(thr[role]) || 0
+      return !(amt < limit && limit > 0)
+    })
     // 计算步骤：严格按照配置顺序，从第一个审批人开始，最后追加 accountant
-    const steps = [...order, 'accountant']
+    const steps = [...filtered, 'accountant']
     const id = String(req.body?.id || (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))))
     const nowISO = new Date().toISOString()
     const history = [{ action: 'create', by: createdBy, time: nowISO }]
@@ -444,12 +666,23 @@ app.post('/api/bill/approve', async (req, res) => {
     try { b.images = Array.isArray(b.images) ? b.images : JSON.parse(b.images || '[]') } catch { b.images = [] }
     b.currentStepIndex = Number(b.currentStepIndex)
     if (!Number.isFinite(b.currentStepIndex)) b.currentStepIndex = 0
-    // if steps empty, rebuild from approval_order + accountant
+    // if steps empty, rebuild from approval_order + accountant，并应用免审阈值
     if (!Array.isArray(b.steps) || b.steps.length === 0) {
       const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
       let order = orows.map(r => r.role)
-      if (!Array.isArray(order) || order.length === 0) order = ['approver1','approver2','approver3','approver4','approver5']
-      b.steps = [...order, 'accountant']
+      if (!Array.isArray(order) || order.length === 0) order = ['approver1','approver2','approver3']
+      let thr = {}
+      try {
+        const srows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
+        thr = JSON.parse(srows[0]?.value || '{}')
+      } catch { thr = {} }
+      const amt = Number(b.amount) || 0
+      const filtered = order.filter(role => {
+        if (!/^approver[123]$/.test(role)) return true
+        const limit = Number(thr[role]) || 0
+        return !(amt < limit && limit > 0)
+      })
+      b.steps = [...filtered, 'accountant']
       b.currentStepIndex = 0
     }
     // clamp index
@@ -529,8 +762,19 @@ app.post('/api/bill/reject', async (req, res) => {
     if (!Array.isArray(b.steps) || b.steps.length === 0) {
       const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
       let order = orows.map(r => r.role)
-      if (!Array.isArray(order) || order.length === 0) order = ['approver1','approver2','approver3','approver4','approver5']
-      b.steps = [...order, 'accountant']
+      if (!Array.isArray(order) || order.length === 0) order = ['approver1','approver2','approver3']
+      let thr = {}
+      try {
+        const srows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
+        thr = JSON.parse(srows[0]?.value || '{}')
+      } catch { thr = {} }
+      const amt = Number(b.amount) || 0
+      const filtered = order.filter(role => {
+        if (!/^approver[123]$/.test(role)) return true
+        const limit = Number(thr[role]) || 0
+        return !(amt < limit && limit > 0)
+      })
+      b.steps = [...filtered, 'accountant']
       b.currentStepIndex = 0
     }
     if (b.currentStepIndex < 0 || b.currentStepIndex >= b.steps.length) b.currentStepIndex = 0
@@ -544,13 +788,15 @@ app.post('/api/bill/reject', async (req, res) => {
     if (b.currentStepIndex === 0) {
       b.status = 'rejected'
       // 一级拒绝：最终拒绝并清空图片
+      // 统一历史记录字段格式：demoteTo 使用“姓名(工号)”
       b.history.push({ action: 'reject', role, reason, time: new Date().toISOString() })
       b.status = 'rejected'
       deleteBillImagesSync(String(b.id))
       b.images = []
     } else {
       // 高级别拒绝：流程回退到前一审批人，保持 pending
-      const demoteTo = b.steps[b.currentStepIndex - 1]
+      const demoteRole = b.steps[b.currentStepIndex - 1]
+      const demoteTo = await formatAccountLabelForRole(demoteRole)
       b.history.push({ action: 'reject', role, reason, demoteTo, time: new Date().toISOString() })
       b.currentStepIndex = b.currentStepIndex - 1
       b.status = 'pending'
@@ -563,6 +809,133 @@ app.post('/api/bill/reject', async (req, res) => {
     console.error('reject error:', e)
     res.status(500).json({ error: e.message })
   }
+})
+
+// ===== 票据事由分级：CRUD 与排序 =====
+// 列出所有分类及其二级项目
+app.get('/api/reasons', async (req, res) => {
+  try {
+    const cats = await all(`SELECT id, name, sort, status FROM reason_categories ORDER BY sort ASC, id ASC`)
+    const items = await all(`SELECT id, categoryId, name, sort, status FROM reason_items ORDER BY sort ASC, id ASC`)
+    const grouped = cats.map(c => ({ ...c, items: items.filter(i => i.categoryId === c.id) }))
+    res.json(grouped)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 一级分类：新增
+app.post('/api/reasons/category', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const name = String(req.body?.name || '').trim()
+    const sort = Number(req.body?.sort || 0)
+    if (!name) return res.status(400).json({ error: '分类名称必填' })
+    const r = await run(`INSERT INTO reason_categories (name, sort, status) VALUES (?, ?, 'enabled')`, [name, sort])
+    res.json({ id: r.lastID, name, sort, status: 'enabled' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 一级分类：编辑
+app.put('/api/reasons/category/:id', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const id = Number(req.params.id)
+    const name = req.body?.name != null ? String(req.body.name).trim() : null
+    const sort = req.body?.sort != null ? Number(req.body.sort) : null
+    const status = req.body?.status != null ? String(req.body.status) : null
+    const rows = await all(`SELECT id, name, sort, status FROM reason_categories WHERE id = ? LIMIT 1`, [id])
+    const c = rows[0]
+    if (!c) return res.status(404).json({ error: '分类不存在' })
+    await run(`UPDATE reason_categories SET name = COALESCE(?, name), sort = COALESCE(?, sort), status = COALESCE(?, status) WHERE id = ?`, [name, sort, status, id])
+    const updated = (await all(`SELECT id, name, sort, status FROM reason_categories WHERE id = ?`, [id]))[0]
+    res.json(updated)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 一级分类：删除（无二级项目且非“其他”才可删除）
+app.delete('/api/reasons/category/:id', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const id = Number(req.params.id)
+    const rows = await all(`SELECT id, name FROM reason_categories WHERE id = ? LIMIT 1`, [id])
+    const c = rows[0]
+    if (!c) return res.status(404).json({ error: '分类不存在' })
+    if (String(c.name) === '其他') return res.status(400).json({ error: '默认分类不可删除' })
+    const cnt = (await all(`SELECT COUNT(*) as c FROM reason_items WHERE categoryId = ?`, [id]))[0]?.c || 0
+    if (cnt > 0) return res.status(400).json({ error: '存在二级项目，不能删除' })
+    await run(`DELETE FROM reason_categories WHERE id = ?`, [id])
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 二级项目：新增
+app.post('/api/reasons/item', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const categoryId = Number(req.body?.categoryId)
+    const name = String(req.body?.name || '').trim()
+    const sort = Number(req.body?.sort || 0)
+    if (!categoryId) return res.status(400).json({ error: '缺少所属一级分类' })
+    if (!name) return res.status(400).json({ error: '项目名称必填' })
+    const r = await run(`INSERT INTO reason_items (categoryId, name, sort, status) VALUES (?, ?, ?, 'enabled')`, [categoryId, name, sort])
+    res.json({ id: r.lastID, categoryId, name, sort, status: 'enabled' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 二级项目：编辑
+app.put('/api/reasons/item/:id', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const id = Number(req.params.id)
+    const name = req.body?.name != null ? String(req.body.name).trim() : null
+    const sort = req.body?.sort != null ? Number(req.body.sort) : null
+    const status = req.body?.status != null ? String(req.body.status) : null
+    const rows = await all(`SELECT id FROM reason_items WHERE id = ? LIMIT 1`, [id])
+    const it = rows[0]
+    if (!it) return res.status(404).json({ error: '项目不存在' })
+    await run(`UPDATE reason_items SET name = COALESCE(?, name), sort = COALESCE(?, sort), status = COALESCE(?, status) WHERE id = ?`, [name, sort, status, id])
+    const updated = (await all(`SELECT id, categoryId, name, sort, status FROM reason_items WHERE id = ?`, [id]))[0]
+    res.json(updated)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 二级项目：删除（需二次确认由前端控制，此处直接删除）
+app.delete('/api/reasons/item/:id', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const id = Number(req.params.id)
+    await run(`DELETE FROM reason_items WHERE id = ?`, [id])
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 排序：批量更新一级分类顺序
+app.post('/api/reasons/category/reorder', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(n=>Number(n)).filter(n=>Number.isFinite(n)) : []
+    for (let i = 0; i < ids.length; i++) {
+      await run(`UPDATE reason_categories SET sort = ? WHERE id = ?`, [i, ids[i]])
+    }
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 排序：批量更新二级项目顺序（按所属分类）
+app.post('/api/reasons/item/reorder', auth, async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: '无权限' })
+    const categoryId = Number(req.body?.categoryId)
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(n=>Number(n)).filter(n=>Number.isFinite(n)) : []
+    if (!categoryId) return res.status(400).json({ error: '缺少分类' })
+    const items = await all(`SELECT id FROM reason_items WHERE categoryId = ?`, [categoryId])
+    const valid = new Set(items.map(i=>i.id))
+    for (let i = 0; i < ids.length; i++) {
+      if (valid.has(ids[i])) await run(`UPDATE reason_items SET sort = ? WHERE id = ?`, [i, ids[i]])
+    }
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 app.post('/api/bill/resubmit', auth, async (req, res) => {

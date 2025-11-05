@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { getApiBase, getApiHost } from '../store/api'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getBillById, approveBill, rejectBill, resubmitBill } from '../store/bills'
 import { getCurrentUser, getUsers } from '../store/users'
@@ -13,10 +14,23 @@ export default function BillDetail() {
   const [viewerSrc, setViewerSrc] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const firstEditableRef = useRef(null)
-  const API_BASE = (import.meta?.env?.VITE_API_BASE) || '/api'
-  const API_HOST = API_BASE.replace(/\/api$/, '')
+  const API_BASE = getApiBase()
+  const API_HOST = getApiHost()
   const user = getCurrentUser()
   const [roleNameMap, setRoleNameMap] = useState({})
+  // 注意：Hook 必须在组件顶层声明，不能放在条件返回之后
+  const [roleAccountLabelMap, setRoleAccountLabelMap] = useState({})
+
+  // 角色形式名映射：审批角色显示为中文级别，不混用用户名
+  const displayRoleLabel = (role) => {
+    if (!role) return ''
+    if (role === 'approver1') return '一级审批'
+    if (role === 'approver2') return '二级审批'
+    if (role === 'approver3') return '三级审批'
+    if (role === 'accountant') return '会计'
+    if (role === 'admin') return '管理员'
+    return roleNameMap[role] || role
+  }
 
   useEffect(() => {
     (async () => {
@@ -36,8 +50,13 @@ export default function BillDetail() {
       try {
         const users = await getUsers()
         const map = {}
-        for (const u of users) map[u.role] = u.name
+        const labelMap = {}
+        for (const u of users) {
+          map[u.role] = u.name
+          labelMap[u.role] = `${u.name}(${u.id})`
+        }
         setRoleNameMap(map)
+        setRoleAccountLabelMap(labelMap)
       } catch {}
     })()
   }, [id])
@@ -54,6 +73,8 @@ export default function BillDetail() {
 
   const curSteps = Array.isArray(bill.steps) ? bill.steps : []
   const curIdx = Number(bill.currentStepIndex) || 0
+
+  // 角色 -> 姓名(工号) 映射（用于老数据 demoteTo=role 的回退显示）
   const canAct = bill.status === 'pending' && user && curSteps[curIdx] === user.role
   const isAccountantFinal = curSteps[curIdx] === 'accountant'
 
@@ -178,14 +199,16 @@ export default function BillDetail() {
             <div className="text-sm">分类：{bill.category}</div>
             <div className="text-sm">状态：{bill.status === 'pending' ? '审批中' : bill.status === 'approved' ? '已通过' : bill.status === 'archived' ? '已归档' : bill.status === 'rejected' ? '已拒绝' : bill.status === 'rejected-modified' ? '已拒绝-已修改' : bill.status}</div>
             {bill.status === 'pending' && (
-              <div className="text-sm">本单由“{roleNameMap[curSteps[curIdx]] || curSteps[curIdx]}”审批中</div>
+              <div className="text-sm">本单由“{roleNameMap[curSteps[curIdx]] || displayRoleLabel(curSteps[curIdx])}”审批中</div>
             )}
-            <div className="text-xs text-gray-600">当前登录角色：{user?.role || '未知'} · 所需审批角色：{curSteps[curIdx] || '未知'}</div>
+            <div className="text-xs text-gray-600">当前用户：{user?.name || user?.role || '未知'} · 所需审批角色：{roleNameMap[curSteps[curIdx]] || displayRoleLabel(curSteps[curIdx]) || '未知'}</div>
             {(() => {
               const lastReject = bill.history.slice().reverse().find(h => h.action === 'reject' && h.demoteTo)
-              return lastReject ? (
-                <div className="text-xs text-orange-600">已回退至：{lastReject.demoteTo} 待审</div>
-              ) : null
+              if (!lastReject) return null
+              const demoteLabel = roleAccountLabelMap[lastReject.demoteTo] || lastReject.demoteTo
+              return (
+                <div className="text-xs text-orange-600">已回退至：{demoteLabel} 待审</div>
+              )
             })()}
           </div>
           {Array.isArray(bill.images) && bill.images.length > 0 && (
@@ -214,12 +237,12 @@ export default function BillDetail() {
           {bill.history.map((h, i) => (
             <div key={i} className="space-y-[2px]">
               <div className="flex justify-between">
-                <span>{h.role ? h.role : (h.action === 'create' ? '系统' : '用户')} · {h.action === 'approve' ? '通过' : h.action === 'reject' ? '拒绝' : h.action === 'create' ? '创建' : h.action === 'modified' ? '已修改' : h.action === 'resubmit_from' ? '从旧记录重提' : h.action}</span>
+                <span>{h.role ? (roleNameMap[h.role] || displayRoleLabel(h.role)) : (h.action === 'create' ? '系统' : '用户')} · {h.action === 'approve' ? '通过' : h.action === 'reject' ? '拒绝' : h.action === 'create' ? '创建' : h.action === 'modified' ? '已修改' : h.action === 'resubmit_from' ? '从旧记录重提' : h.action}</span>
                 <span className="text-xs text-gray-500">{new Date(h.time).toLocaleString()}</span>
               </div>
               {h.action === 'reject' && (
                 <div className="text-xs text-gray-600">
-                  {h.reason ? `理由：${h.reason}` : '无理由'}{h.demoteTo ? ` · 回退至：${h.demoteTo}` : ''}
+                  {h.reason ? `理由：${h.reason}` : '无理由'}{h.demoteTo ? ` · 回退至：${roleAccountLabelMap[h.demoteTo] || h.demoteTo}` : ''}
                 </div>
               )}
             </div>

@@ -5,6 +5,7 @@ import sys
 import subprocess
 import shlex
 import time
+import shutil
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SERVER_PID = os.path.join(ROOT, 'server.pid')
@@ -44,6 +45,11 @@ def npm_install():
 
 
 def build_frontend(api_base=None):
+    # 不清理 build_tmp：宝塔面板会在站点根投放不可删除的 .user.ini（chattr +i），
+    # 清空目录可能失败。改为依赖 Vite 的覆盖输出（emptyOutDir=false）。
+    # 如需强制清理，请在服务器手动执行：
+    #   sudo chattr -i build_tmp/.user.ini && sudo rm -rf build_tmp
+
     env = os.environ.copy()
     if api_base:
         env['VITE_API_BASE'] = api_base
@@ -62,16 +68,24 @@ def start_backend():
     print(f"后端已启动，PID={pid}，日志：{SERVER_LOG}")
 
 
-def start_frontend(port=6667):
-    # 前端：npx serve -s dist -l <port>
-    cmd = f"nohup npx serve -s dist -l {int(port)} > {FRONT_LOG} 2>&1 & echo $!"
+def start_frontend(port=80, host='0.0.0.0'):
+    # 前端：npx serve -s build_tmp -l <host:port>
+    # 绑定 80 端口可能需要 root 或 CAP_NET_BIND_SERVICE 权限
+    try:
+        if int(port) < 1024 and hasattr(os, 'geteuid') and os.geteuid() != 0:
+            print(f"警告：端口 {port} 可能需要 root 权限，若启动失败请使用反向代理或以 root 运行。")
+    except Exception:
+        # 在部分平台（如 Windows）无 geteuid，忽略此检查
+        pass
+    bind = f"{host}:{int(port)}"
+    cmd = f"nohup npx serve -s build_tmp -l {bind} > {FRONT_LOG} 2>&1 & echo $!"
     print(f"启动前端：{cmd}")
     pid = subprocess.check_output(cmd, shell=True, cwd=ROOT).decode().strip()
     with open(FRONT_PID, 'w') as f:
         f.write(pid)
     time.sleep(0.5)
     print(f"前端已启动，PID={pid}，日志：{FRONT_LOG}")
-    print("提示：如果浏览器出现 ERR_UNSAFE_PORT，可用反向代理将 6667 映射到 80/443 访问。")
+    print("提示：前端已在 0.0.0.0 监听，如无法绑定 80，请用 Nginx 将 80/443 反代到此进程。")
 
 
 def kill_pidfile(path, name):
@@ -108,8 +122,8 @@ def read_pid(path):
 
 def main():
     parser = argparse.ArgumentParser(description='Linux 部署脚本：安装依赖、构建前端、启动/停止服务。')
-    parser.add_argument('--api-base', default='http://localhost:6666/api', help='前端构建时使用的后端 API 基址（默认 http://localhost:6666/api）')
-    parser.add_argument('--frontend-port', type=int, default=6667, help='前端静态服务端口（默认 6667）')
+    parser.add_argument('--api-base', default='http://8.163.7.207:6666/api', help='前端构建时使用的后端 API 基址（默认 http://8.163.7.207:6666/api）')
+    parser.add_argument('--frontend-port', type=int, default=60, help='前端静态服务端口（默认 60）')
     parser.add_argument('--install', action='store_true', help='执行 npm install/ci 安装依赖')
     parser.add_argument('--build', action='store_true', help='构建前端（生成 dist/）')
     parser.add_argument('--start', action='store_true', help='启动后端与前端')
@@ -155,7 +169,7 @@ def main():
 
     # 若未传任何参数，执行最常用的一键流程：安装 + 构建 + 启动
     if not any([args.install, args.build, args.start, args.stop, args.status, args.restart_frontend]):
-        print('未提供参数，执行默认流程：--install --build --start')
+        print('未提供参数，执行默认流程：--install --build --start（前端默认端口 60）')
         ensure_node()
         npm_install()
         build_frontend(api_base=args.api_base)

@@ -12,8 +12,8 @@
 
 ## 服务器前置条件
 - 已安装 `python3`、`node` 与 `npm`（部署脚本会检测 node/npm，不满足会失败）
-- 服务器目录（例如 `/opt/bill-app`）可写入，且端口：后端 `6666`、前端 `6667` 可用
-- （可选）花生壳已将公网 `443` 映射到内网 `127.0.0.1:6667`
+- 服务器目录（例如 `/opt/bill-app`）可写入，且端口：后端 `6666` 可用；前端通过 Nginx 对外提供 `80`
+- （可选）花生壳已将公网 `443` 映射到内网 `127.0.0.1:80`
 
 ## 必需的 GitHub Secrets
 请在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加以下 Secrets：
@@ -39,13 +39,13 @@
 3. 触发 `main` 推送后，工作流会自动将代码同步到服务器并运行 `deploy.py`。
 
 ## 验证
-- 内网：`curl -I http://127.0.0.1:6667/`、`curl -s http://127.0.0.1:6666/api/ping`
+- 内网：`curl -I http://127.0.0.1/`、`curl -s http://127.0.0.1:6666/api/ping`
 - 外网（花生壳域名）：`curl -I https://你的域名/`
 - 若失败，查看服务器上的 `server.log` / `frontend.log`，以及 GitHub Actions 的运行日志。
 
 ## 常见问题
 - Node/npm 不存在：在服务器安装 Node.js（>=18）与 npm。
-- 端口占用：确认 `6666/6667` 未被其他程序占用。
+- 端口占用：确认 `6666/80` 未被其他程序占用。
 - 权限不足：确保 `REMOTE_DIR` 可写且 SSH 用户有权限执行 `python3`、`node`。
 - 私钥格式错误：`SSH_PRIVATE_KEY` 使用 OpenSSH/PEM 私钥内容（包含 `BEGIN/END`）。
 

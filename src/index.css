@@ -16,3 +16,23 @@ p {
 }
 
 /*（移除诊断区块的全局样式，避免影响页面其他部分）*/
+
+/* 全局统一输入控件为白底（不改变边框与圆角） */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  background-color: #FFFFFF;
+  color: #111827; /* 保持可读性，与 text-gray-900 一致 */
+}
+
+/* MUI 文本框内部 input 也统一白底 */
+.MuiInputBase-input,
+.MuiOutlinedInput-input,
+.MuiFilledInput-input {
+  background-color: #FFFFFF !important;
+  color: #111827;
+}
+
+/* WeChat 浏览器可见性辅助类 */
+.wechat .hide-in-wechat { display: none !important; }
+.non-wechat .show-only-in-wechat { display: none !important; }

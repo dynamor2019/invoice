@@ -1,11 +1,13 @@
-import { Link, useNavigate } from 'react-router-dom'
+﻿import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getCurrentUser } from '../store/users'
 import { seedBills, getTodosByRole, getBills, deleteBill, approveBill } from '../store/bills'
-import { getUsers } from '../store/users'
+import { getUsers, getApprovalOrder } from '../store/users'
 import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Drawer from '../components/Drawer'
+import { getApiBase, getApiHost } from '../store/api'
+import { getApprovalThresholds } from '../store/settings'
 
 export default function Home() {
   const user = getCurrentUser()
@@ -16,6 +18,7 @@ export default function Home() {
   const [openIds, setOpenIds] = useState({})
   const [roleNameMap, setRoleNameMap] = useState({})
   const [userNameMap, setUserNameMap] = useState({})
+  const [roleAccountLabelMap, setRoleAccountLabelMap] = useState({})
   const [hiddenIds, setHiddenIds] = useState(() => {
     const u = getCurrentUser()
     const key = `fa_hidden_${u?.id || 'unknown'}`
@@ -56,11 +59,53 @@ export default function Home() {
           const users = await getUsers()
           const mapRole = {}
           const mapId = {}
-          for (const u of users) { mapRole[u.role] = u.name; mapId[u.id] = u.name }
+          const labelMap = {}
+          for (const u of users) { mapRole[u.role] = u.name; mapId[u.id] = u.name; labelMap[u.role] = `${u.name}(${u.id})` }
           setRoleNameMap(mapRole)
           setUserNameMap(mapId)
+          setRoleAccountLabelMap(labelMap)
         } catch {}
       }
+    })()
+  }, [])
+
+  // 角色显示为形式名：approver1/2/3 显示为“一级/二级/三级审批”，会计/管理员分别显示对应中文
+  const displayRoleLabel = (role) => {
+    if (!role) return ''
+    if (role === 'approver1') return '一级审批'
+    if (role === 'approver2') return '二级审批'
+    if (role === 'approver3') return '三级审批'
+    if (role === 'accountant') return '会计'
+    if (role === 'admin') return '管理员'
+    return roleNameMap[role] || role
+  }
+
+  // 免审抽屉数据：根据审批顺序与阈值计算（首页展示）
+  useEffect(() => {
+    (async () => {
+      const u = getCurrentUser()
+      if (!u) return
+      try {
+        const [order, thresholds, all] = await Promise.all([
+          getApprovalOrder().catch(() => []),
+          getApprovalThresholds().catch(() => ({ approver1:0, approver2:0, approver3:0 })),
+          getBills().catch(() => [])
+        ])
+        const baseHasRole = Array.isArray(order) && order.includes(u.role)
+        setIsApprover(!!baseHasRole)
+        if (baseHasRole) {
+          const limit = Number(thresholds[u.role]) || 0
+          const skippedList = (all || []).filter(b => {
+            if (b.status !== 'pending') return false
+            const steps = Array.isArray(b.steps) ? b.steps : []
+            // 若流程中不包含该审批角色，且存在阈值配置，则视为因阈值被跳过
+            return limit > 0 && !steps.includes(u.role)
+          })
+          setSkipped(skippedList)
+        } else {
+          setSkipped([])
+        }
+      } catch {}
     })()
   }, [])
 
@@ -109,6 +154,12 @@ export default function Home() {
   const navigate = useNavigate()
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [olderOpen, setOlderOpen] = useState(false)
+  // 免审抽屉（审查员视角）
+  const [skippedOpen, setSkippedOpen] = useState(false)
+  const [skipped, setSkipped] = useState([])
+  const [isApprover, setIsApprover] = useState(false)
+  // 图片预览
+  const [viewerSrc, setViewerSrc] = useState(null)
 
   const onDeleteMyBill = async (b) => {
     if (!b) return
@@ -308,6 +359,8 @@ return (
         </div>
       </section>
 
+      
+
       <section className="bg-white rounded-lg border border-primary/20 p-3">
         <h3 className="text-sm text-gray-700 mb-[2px]">待办审批</h3>
         <div className="space-y-[2px]">
@@ -331,10 +384,10 @@ return (
                  <AccordionDetails>
                    <div className="space-y-[2px]">
                     {list.map((b) => (
-                      <div key={b.id} className="rounded-lg border border-primary/20 p-3 cursor-pointer" onClick={() => navigate('/review', { state: { batchIds: list.map(x => x.id) } })}>
+                      <div key={b.id} className="rounded-lg border border-primary/20 p-3 cursor-pointer" onClick={() => navigate(`/bill/${b.id}`)}>
                          <div className="flex justify-between">
                            <span className="font-medium">{b.title} 编号：{displayNoOf(b)}</span>
-                           <span className="text-xs text-primary">本单由“{roleNameMap[b.steps[b.currentStepIndex]] || b.steps[b.currentStepIndex]}”审批中</span>
+                           <span className="text-xs text-primary">本单由“{roleNameMap[b.steps[b.currentStepIndex]] || displayRoleLabel(b.steps[b.currentStepIndex])}”审批中</span>
                          </div>
                         <div className="text-xs text-gray-500 mt-[2px]">金额：¥{b.amount.toFixed(2)} · {b.category}</div>
                         {/* 去掉按钮，点击卡片进入审批页面 */}
@@ -349,9 +402,43 @@ return (
         </div>
       </section>
 
+      {(isApprover || /^approver[123]$/.test(user?.role)) && (
+        <section className="bg-white rounded-lg border border-amber-300 p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">免审单据（本级）</div>
+            <button
+              onClick={() => setSkippedOpen(o => !o)}
+              className="px-2 py-1 rounded bg-white border border-primary/30 text-xs"
+            >{skippedOpen ? '收起' : `展开（${skipped.length}）`}</button>
+          </div>
+              {skippedOpen && (
+                <div className="mt-[2px] space-y-[2px]">
+                  {skipped.length === 0 ? (
+                    <div className="text-xs text-gray-500">暂无免审单据</div>
+                  ) : (
+                    skipped.map(b => (
+                      <div
+                        key={b.id}
+                        className="rounded-lg border border-primary/20 p-3 bg-white cursor-pointer"
+                        onClick={() => { setDrawerBill(b); setDrawerOpen(true) }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium">{b.title}</div>
+                          <div className="text-xs text-gray-600">金额：¥{Number(b.amount||0).toFixed(2)}</div>
+                        </div>
+                        <div className="text-xs text-gray-600 mt-[2px]">编号：{String(b.id)}</div>
+                        <div className="text-xs text-gray-500 mt-[2px]">点击查看详细内容</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+        </section>
+      )}
+
       <section className="bg-white rounded-lg border border-primary/20 p-3">
         <div className="flex items-center justify-between mb-[2px]">
-          <h3 className="text-sm text-gray-700">我发起的票据（本周内）</h3>
+          <h3 className="text-sm text-gray-700">我发起的（本周内）</h3>
           <div className="flex items-center gap-[2px]">
             <select value={timeBasis} onChange={(e)=>setTimeBasis(e.target.value)} className="text-xs rounded border px-2 py-1">
               <option value="submitted">按提交时间</option>
@@ -411,16 +498,74 @@ return (
           <div className="space-y-[2px]">
             <div className="text-sm font-medium">{drawerBill.title}</div>
             <div className="text-xs text-gray-600">编号：{displayNoOf(drawerBill)}</div>
-            <div className="text-xs text-gray-600">金额：¥{drawerBill.amount.toFixed(2)}</div>
+            <div className="text-xs text-gray-600">金额：¥{Number(drawerBill.amount||0).toFixed(2)}</div>
             <div className="text-xs text-gray-600">分类：{drawerBill.category}</div>
             <div className="text-xs text-gray-600">日期：{drawerBill.date}</div>
             <div className="text-xs text-gray-600">状态：{statusText(drawerBill.status)}</div>
-            <div className="text-xs">
-              <a href={`#/bill/${drawerBill.id}`} className="text-blue-600">跳转详情页</a>
-            </div>
+            {(() => {
+              const steps = Array.isArray(drawerBill.steps) ? drawerBill.steps : []
+              const idx = Number(drawerBill.currentStepIndex) || 0
+              return drawerBill.status === 'pending' && steps[idx] ? (
+                <div className="text-xs text-gray-600">本单由“{roleNameMap[steps[idx]] || displayRoleLabel(steps[idx])}”审批中</div>
+              ) : null
+            })()}
+            {(() => {
+              let imgs = Array.isArray(drawerBill.images) ? drawerBill.images : []
+              if (!Array.isArray(imgs)) { try { imgs = JSON.parse(drawerBill.images || '[]') } catch { imgs = [] } }
+              const API_BASE = getApiBase()
+              const API_HOST = getApiHost()
+              return imgs.length > 0 ? (
+                <div>
+                  <div className="text-xs text-gray-700 mb-[2px]">附件图片</div>
+                  <div className="grid grid-cols-3 gap-[2px]">
+                    {imgs.map((u, i) => (
+                      <img
+                        key={i}
+                        src={`${API_HOST}${u}`}
+                        alt={`票据图片${i+1}`}
+                        className="w-full h-20 object-cover rounded border cursor-zoom-in"
+                        onClick={() => setViewerSrc(`${API_HOST}${u}`)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            })()}
+            {(() => {
+              let hist = Array.isArray(drawerBill.history) ? drawerBill.history : []
+              if (!Array.isArray(hist)) { try { hist = JSON.parse(drawerBill.history || '[]') } catch { hist = [] } }
+              return (
+                <div className="space-y-[2px]">
+                  <div className="text-xs text-gray-700">审批记录</div>
+                  <div className="rounded border border-gray-200 p-2 bg-white">
+                    {hist.length === 0 && <div className="text-xs text-gray-500">暂无记录</div>}
+                    {hist.map((h, i) => (
+                      <div key={i} className="text-xs text-gray-700">
+                        <div className="flex justify-between">
+                          <span>{h.role ? (roleNameMap[h.role] || h.role) : (h.action === 'create' ? '系统' : '用户')} · {h.action === 'approve' ? '通过' : h.action === 'reject' ? '拒绝' : h.action === 'create' ? '创建' : h.action}</span>
+                          {h.time && <span className="text-gray-500">{new Date(h.time).toLocaleString()}</span>}
+                        </div>
+                        {h.action === 'reject' && (
+                          <div className="text-xs text-gray-600">{h.reason ? `理由：${h.reason}` : '无理由'}{h.demoteTo ? ` · 回退至：${roleAccountLabelMap[h.demoteTo] || h.demoteTo}` : ''}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
       </Drawer>
+      {/* 图片预览层 */}
+      {viewerSrc && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center"
+          onClick={() => setViewerSrc(null)}
+        >
+          <img src={viewerSrc} alt="预览" className="max-w-[95vw] max-h-[85vh] rounded shadow" />
+        </div>
+      )}
       {/* 一周以前的单子抽屉 */}
       <Drawer open={olderOpen} onClose={() => setOlderOpen(false)}>
         <div className="space-y-[2px]">
