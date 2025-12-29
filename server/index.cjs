@@ -88,6 +88,7 @@ async function ensureSchema() {
     amount REAL,
     category TEXT,
     date TEXT,
+    projectId TEXT,
     createdBy TEXT,
     status TEXT,
     steps TEXT,
@@ -95,7 +96,117 @@ async function ensureSchema() {
     history TEXT,
     images TEXT
   )`)
+  
+  // 为现有bills表添加projectId字段（如果不存在）
+  try {
+    await run(`ALTER TABLE bills ADD COLUMN projectId TEXT`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
   await run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`)
+  
+  // 项目管理表
+  await run(`CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    code TEXT UNIQUE,
+    name TEXT NOT NULL,
+    client TEXT,
+    contractNo TEXT,
+    totalBudget REAL DEFAULT 0,
+    balance REAL DEFAULT 0,
+    duration TEXT,
+    clientFinancialInfo TEXT,
+    projectOverview TEXT,
+    settlementAmount REAL DEFAULT 0,
+    paymentMethod TEXT,
+    invoiceInfo TEXT,
+    contractFileUrl TEXT,
+    approvalStatus TEXT DEFAULT 'draft',
+    createdBy TEXT,
+    createdAt TEXT,
+    updatedAt TEXT
+  )`)
+  
+  // 供应商表
+  await run(`CREATE TABLE IF NOT EXISTS suppliers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    contact TEXT,
+    phone TEXT,
+    address TEXT,
+    bankAccount TEXT,
+    taxNo TEXT,
+    category TEXT,
+    rating INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    createdAt TEXT,
+    updatedAt TEXT
+  )`)
+  
+  // 供应商合同表
+  await run(`CREATE TABLE IF NOT EXISTS supplier_contracts (
+    id TEXT PRIMARY KEY,
+    contractNo TEXT UNIQUE,
+    contractName TEXT,
+    projectId TEXT,
+    supplierId TEXT,
+    supplierName TEXT,
+    contractAmount REAL DEFAULT 0,
+    paymentMethod TEXT,
+    materialList TEXT,
+    contractFileUrl TEXT,
+    status TEXT DEFAULT 'draft',
+    approvalStatus TEXT DEFAULT 'pending',
+    isArchived INTEGER DEFAULT 0,
+    createdBy TEXT,
+    createdAt TEXT,
+    updatedAt TEXT,
+    FOREIGN KEY(projectId) REFERENCES projects(id),
+    FOREIGN KEY(supplierId) REFERENCES suppliers(id)
+  )`)
+  
+  // 材料清单表
+  await run(`CREATE TABLE IF NOT EXISTS materials (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL,
+    serialNumber TEXT,
+    name TEXT NOT NULL,
+    specification TEXT,
+    unit TEXT,
+    quantity REAL DEFAULT 0,
+    unitPrice REAL DEFAULT 0,
+    totalPrice REAL DEFAULT 0,
+    remarks TEXT,
+    supplier TEXT,
+    type TEXT DEFAULT '材料清单',
+    contractId TEXT,
+    createdAt TEXT,
+    updatedAt TEXT,
+    FOREIGN KEY(projectId) REFERENCES projects(id)
+  )`)
+  
+  // 项目变更记录表
+  await run(`CREATE TABLE IF NOT EXISTS project_changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projectId TEXT,
+    changeType TEXT,
+    changeData TEXT,
+    changedBy TEXT,
+    changedAt TEXT,
+    FOREIGN KEY(projectId) REFERENCES projects(id)
+  )`)
+  
+  // 通知表
+  await run(`CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    title TEXT,
+    content TEXT,
+    type TEXT,
+    relatedId TEXT,
+    isRead INTEGER DEFAULT 0,
+    createdAt TEXT
+  )`)
 
   // Ensure images column exists for legacy DBs
   try {
@@ -380,6 +491,64 @@ app.get('/api/users', async (req, res) => {
   }
 })
 
+// 添加用户
+app.post('/api/users', auth, async (req, res) => {
+  try {
+    const { id, name, role, password } = req.body
+    if (!id || !name || !role || !password) {
+      return res.status(400).json({ error: '缺少必要参数' })
+    }
+    
+    // 检查用户是否已存在
+    const existing = await all(`SELECT id FROM users WHERE id = ?`, [id])
+    if (existing.length > 0) {
+      return res.status(400).json({ error: '用户ID已存在' })
+    }
+    
+    await run(`INSERT INTO users (id, name, role, password) VALUES (?, ?, ?, ?)`, [id, name, role, password])
+    res.json({ success: true, message: '用户添加成功' })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 更新用户
+app.put('/api/users/:id', auth, async (req, res) => {
+  try {
+    const { name, role, password } = req.body
+    const userId = req.params.id
+    
+    let sql = 'UPDATE users SET '
+    let params = []
+    let updates = []
+    
+    if (name) {
+      updates.push('name = ?')
+      params.push(name)
+    }
+    if (role) {
+      updates.push('role = ?')
+      params.push(role)
+    }
+    if (password) {
+      updates.push('password = ?')
+      params.push(password)
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: '没有要更新的字段' })
+    }
+    
+    sql += updates.join(', ') + ' WHERE id = ?'
+    params.push(userId)
+    
+    await run(sql, params)
+    res.json({ success: true, message: '用户更新成功' })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // 公司名称设置：获取
 app.get('/api/setting/companyName', async (req, res) => {
   try {
@@ -617,8 +786,17 @@ app.get('/api/bill/:id', async (req, res) => {
 
 app.post('/api/bill', auth, async (req, res) => {
   try {
-    const { title = '票据', amount = 0, category = '通用', date = new Date().toISOString().slice(0,10) } = req.body || {}
+    const { title = '票据', amount = 0, category = '通用', date = new Date().toISOString().slice(0,10), projectId } = req.body || {}
     const createdBy = req.user?.id || 'admin'
+    
+    // 验证项目ID是否存在
+    if (projectId) {
+      const project = await all(`SELECT id FROM projects WHERE id = ?`, [projectId])
+      if (project.length === 0) {
+        return res.status(400).json({ error: '关联项目不存在' })
+      }
+    }
+    
     // 读取审批顺序
     const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
     let order = orows.map(r => r.role)
@@ -644,10 +822,10 @@ app.post('/api/bill', auth, async (req, res) => {
     const history = [{ action: 'create', by: createdBy, time: nowISO }]
     const status = 'pending'
     const currentStepIndex = 0
-    await run(`REPLACE INTO bills (id, title, amount, category, date, createdBy, status, steps, currentStepIndex, history, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-      id, title, Number(amount) || 0, category, date, createdBy, status, JSON.stringify(steps), currentStepIndex, JSON.stringify(history), JSON.stringify([])
+    await run(`REPLACE INTO bills (id, title, amount, category, date, projectId, createdBy, status, steps, currentStepIndex, history, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+      id, title, Number(amount) || 0, category, date, projectId, createdBy, status, JSON.stringify(steps), currentStepIndex, JSON.stringify(history), JSON.stringify([])
     ])
-    res.json({ id, title, amount: Number(amount)||0, category, date, createdBy, status, steps, currentStepIndex, history, images: [] })
+    res.json({ id, title, amount: Number(amount)||0, category, date, projectId, createdBy, status, steps, currentStepIndex, history, images: [] })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
@@ -1068,6 +1246,769 @@ app.get('/api/bill/:id/edits', async (req, res) => {
     const rows = await all(`SELECT id, originalId, newId, editorId, time, diff FROM bill_edits WHERE originalId = ? OR newId = ? ORDER BY time DESC`, [id, id])
     const parsed = rows.map(r => ({ ...r, diff: (()=>{ try { return JSON.parse(r.diff||'{}') } catch { return {} } })() }))
     res.json(parsed)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ===== 项目管理 API =====
+// 生成项目编码: HN-YYYY-MM-DD-NNN
+async function generateProjectCode() {
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '-')
+  const prefix = `HN-${dateStr}`
+  const rows = await all(`SELECT code FROM projects WHERE code LIKE ? ORDER BY code DESC LIMIT 1`, [`${prefix}-%`])
+  let seq = 1
+  if (rows.length > 0) {
+    const lastCode = rows[0].code
+    const lastSeq = parseInt(lastCode.split('-').pop(), 10)
+    if (!isNaN(lastSeq)) seq = lastSeq + 1
+  }
+  return `${prefix}-${String(seq).padStart(3, '0')}`
+}
+
+// 生成合同编码: HN-CG-YYYY-MM-DD-NNN
+async function generateContractCode() {
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '-')
+  const prefix = `HN-CG-${dateStr}`
+  const rows = await all(`SELECT contractNo FROM supplier_contracts WHERE contractNo LIKE ? ORDER BY contractNo DESC LIMIT 1`, [`${prefix}-%`])
+  let seq = 1
+  if (rows.length > 0) {
+    const lastCode = rows[0].contractNo
+    const lastSeq = parseInt(lastCode.split('-').pop(), 10)
+    if (!isNaN(lastSeq)) seq = lastSeq + 1
+  }
+  return `${prefix}-${String(seq).padStart(3, '0')}`
+}
+
+// 项目文件上传配置
+const projectStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(UPLOAD_DIR, 'projects')
+    fs.mkdirSync(dir, { recursive: true })
+    cb(null, dir)
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '') || ''
+    const name = `${Date.now()}-${Math.round(Math.random()*1e6)}${ext}`
+    cb(null, name)
+  }
+})
+const projectUpload = multer({ storage: projectStorage, limits: { fileSize: 50 * 1024 * 1024 } })
+
+// 获取所有项目
+app.get('/api/projects', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT * FROM projects ORDER BY createdAt DESC`)
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 创建项目
+app.post('/api/projects', auth, projectUpload.single('contract'), async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const code = await generateProjectCode()
+    const now = new Date().toISOString()
+    const { name, client, contractNo, totalBudget, duration, clientFinancialInfo, projectOverview, settlementAmount, paymentMethod, invoiceInfo } = req.body
+    
+    let contractFileUrl = null
+    if (req.file) {
+      contractFileUrl = '/uploads/projects/' + req.file.filename
+    }
+    
+    const budget = Number(totalBudget) || 0
+    await run(`INSERT INTO projects (id, code, name, client, contractNo, totalBudget, balance, duration, clientFinancialInfo, projectOverview, settlementAmount, paymentMethod, invoiceInfo, contractFileUrl, approvalStatus, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
+      [id, code, name, client, contractNo, budget, budget, duration, clientFinancialInfo, projectOverview, Number(settlementAmount) || 0, paymentMethod, invoiceInfo, contractFileUrl, req.user?.id, now, now])
+    
+    const project = (await all(`SELECT * FROM projects WHERE id = ?`, [id]))[0]
+    res.json(project)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 更新项目
+app.put('/api/projects/:id', auth, projectUpload.single('contract'), async (req, res) => {
+  try {
+    const projectId = req.params.id
+    const existing = (await all(`SELECT * FROM projects WHERE id = ?`, [projectId]))[0]
+    if (!existing) return res.status(404).json({ error: '项目不存在' })
+    
+    const { name, client, contractNo, totalBudget, duration, clientFinancialInfo, projectOverview, settlementAmount, paymentMethod, invoiceInfo } = req.body
+    const now = new Date().toISOString()
+    
+    let contractFileUrl = existing.contractFileUrl
+    if (req.file) {
+      contractFileUrl = '/uploads/projects/' + req.file.filename
+    }
+    
+    const budget = Number(totalBudget) || existing.totalBudget
+    const oldBudget = Number(existing.totalBudget) || 0
+    const oldBalance = Number(existing.balance) || 0
+    const newBalance = oldBalance + (budget - oldBudget)
+    
+    await run(`UPDATE projects SET name = ?, client = ?, contractNo = ?, totalBudget = ?, balance = ?, duration = ?, clientFinancialInfo = ?, projectOverview = ?, settlementAmount = ?, paymentMethod = ?, invoiceInfo = ?, contractFileUrl = ?, updatedAt = ? WHERE id = ?`,
+      [name, client, contractNo, budget, newBalance, duration, clientFinancialInfo, projectOverview, Number(settlementAmount) || 0, paymentMethod, invoiceInfo, contractFileUrl, now, projectId])
+    
+    // 记录变更
+    await run(`INSERT INTO project_changes (projectId, changeType, changeData, changedBy, changedAt) VALUES (?, ?, ?, ?, ?)`,
+      [projectId, 'update', JSON.stringify({ name, client, contractNo, totalBudget, duration }), req.user?.id, now])
+    
+    // 发送通知给董事长和总经理
+    const chairmanUsers = await all(`SELECT * FROM users WHERE role = 'chairman'`)
+    const gmUsers = await all(`SELECT * FROM users WHERE role = 'gm'`)
+    const notificationUsers = [...chairmanUsers, ...gmUsers]
+    
+    for (const user of notificationUsers) {
+      const notificationId = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+      await run(`INSERT INTO notifications (id, userId, title, message, type, isRead, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [notificationId, user.id, '项目信息变更通知', `项目"${name}"信息已更新`, 'update', 0, now])
+    }
+    
+    const project = (await all(`SELECT * FROM projects WHERE id = ?`, [projectId]))[0]
+    res.json(project)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 删除项目
+app.delete('/api/projects/:id', auth, async (req, res) => {
+  try {
+    const projectId = req.params.id
+    await run(`DELETE FROM materials WHERE projectId = ?`, [projectId])
+    await run(`DELETE FROM supplier_contracts WHERE projectId = ?`, [projectId])
+    await run(`DELETE FROM project_changes WHERE projectId = ?`, [projectId])
+    await run(`DELETE FROM projects WHERE id = ?`, [projectId])
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 提交项目审批
+app.post('/api/projects/:id/submit', auth, async (req, res) => {
+  try {
+    const projectId = req.params.id
+    const now = new Date().toISOString()
+    await run(`UPDATE projects SET approvalStatus = 'pending', updatedAt = ? WHERE id = ?`, [now, projectId])
+    const project = (await all(`SELECT * FROM projects WHERE id = ?`, [projectId]))[0]
+    res.json(project)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 审批项目
+app.post('/api/projects/:id/approve', auth, async (req, res) => {
+  try {
+    const projectId = req.params.id
+    const { approved, comments } = req.body
+    const now = new Date().toISOString()
+    const status = approved ? 'approved' : 'rejected'
+    await run(`UPDATE projects SET approvalStatus = ?, updatedAt = ? WHERE id = ?`, [status, now, projectId])
+    
+    // 记录变更
+    await run(`INSERT INTO project_changes (projectId, changeType, changeData, changedBy, changedAt) VALUES (?, ?, ?, ?, ?)`,
+      [projectId, 'approval', JSON.stringify({ approved, comments }), req.user?.id, now])
+    
+    const project = (await all(`SELECT * FROM projects WHERE id = ?`, [projectId]))[0]
+    
+    // 发送通知给董事长和总经理
+    const chairmanUsers = await all(`SELECT * FROM users WHERE role = 'chairman'`)
+    const gmUsers = await all(`SELECT * FROM users WHERE role = 'gm'`)
+    const notificationUsers = [...chairmanUsers, ...gmUsers]
+    
+    const statusText = approved ? '已通过审批' : '审批被拒绝'
+    for (const user of notificationUsers) {
+      const notificationId = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+      await run(`INSERT INTO notifications (id, userId, title, message, type, isRead, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [notificationId, user.id, '项目审批通知', `项目"${project.name}"${statusText}`, 'approval', 0, now])
+    }
+    
+    res.json(project)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 获取项目变更记录
+app.get('/api/projects/:id/changes', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT * FROM project_changes WHERE projectId = ? ORDER BY changedAt DESC`, [req.params.id])
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 上传项目附件
+app.post('/api/projects/:id/attachments', auth, projectUpload.array('files', 10), async (req, res) => {
+  try {
+    const files = (req.files || []).map(f => '/uploads/projects/' + f.filename)
+    res.json({ files })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ===== 供应商 API =====
+app.get('/api/suppliers', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT * FROM suppliers WHERE status = 'active' ORDER BY name ASC`)
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.post('/api/suppliers', auth, async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const now = new Date().toISOString()
+    const { name, contact, phone, address, bankAccount, taxNo, category } = req.body
+    
+    await run(`INSERT INTO suppliers (id, name, contact, phone, address, bankAccount, taxNo, category, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+      [id, name, contact, phone, address, bankAccount, taxNo, category, now, now])
+    
+    const supplier = (await all(`SELECT * FROM suppliers WHERE id = ?`, [id]))[0]
+    res.json(supplier)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.put('/api/suppliers/:id', auth, async (req, res) => {
+  try {
+    const { name, contact, phone, address, bankAccount, taxNo, category, rating, status } = req.body
+    const now = new Date().toISOString()
+    await run(`UPDATE suppliers SET name = ?, contact = ?, phone = ?, address = ?, bankAccount = ?, taxNo = ?, category = ?, rating = ?, status = ?, updatedAt = ? WHERE id = ?`,
+      [name, contact, phone, address, bankAccount, taxNo, category, rating || 0, status || 'active', now, req.params.id])
+    const supplier = (await all(`SELECT * FROM suppliers WHERE id = ?`, [req.params.id]))[0]
+    res.json(supplier)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.delete('/api/suppliers/:id', auth, async (req, res) => {
+  try {
+    await run(`UPDATE suppliers SET status = 'deleted' WHERE id = ?`, [req.params.id])
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+
+// ===== 供应商合同 API =====
+// 合同文件上传配置
+const contractStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(UPLOAD_DIR, 'contracts')
+    fs.mkdirSync(dir, { recursive: true })
+    cb(null, dir)
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '') || ''
+    const name = `${Date.now()}-${Math.round(Math.random()*1e6)}${ext}`
+    cb(null, name)
+  }
+})
+const contractUpload = multer({ storage: contractStorage, limits: { fileSize: 50 * 1024 * 1024 } })
+
+// 获取合同列表
+app.get('/api/supplier-contracts', auth, async (req, res) => {
+  try {
+    const { projectId, includeArchived } = req.query
+    let sql = `SELECT * FROM supplier_contracts WHERE 1=1`
+    const params = []
+    
+    if (projectId) {
+      sql += ` AND projectId = ?`
+      params.push(projectId)
+    }
+    
+    if (includeArchived !== 'true') {
+      sql += ` AND isArchived = 0`
+    }
+    
+    sql += ` ORDER BY createdAt DESC`
+    const rows = await all(sql, params)
+    
+    // 解析materialList
+    const parsed = rows.map(r => ({
+      ...r,
+      materialList: (() => { try { return JSON.parse(r.materialList || '[]') } catch { return [] } })()
+    }))
+    
+    res.json(parsed)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 创建合同
+app.post('/api/supplier-contracts', auth, contractUpload.single('contractFile'), async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const contractNo = await generateContractCode()
+    const now = new Date().toISOString()
+    
+    const { projectId, contractName, supplierId, supplierName, contractAmount, paymentMethod, materialList } = req.body
+    
+    let contractFileUrl = null
+    if (req.file) {
+      contractFileUrl = '/uploads/contracts/' + req.file.filename
+    }
+    
+    // 解析材料清单
+    let materials = []
+    try {
+      materials = typeof materialList === 'string' ? JSON.parse(materialList) : (materialList || [])
+    } catch { materials = [] }
+    
+    await run(`INSERT INTO supplier_contracts (id, contractNo, contractName, projectId, supplierId, supplierName, contractAmount, paymentMethod, materialList, contractFileUrl, status, approvalStatus, isArchived, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'pending', 0, ?, ?, ?)`,
+      [id, contractNo, contractName, projectId, supplierId, supplierName, Number(contractAmount) || 0, paymentMethod, JSON.stringify(materials), contractFileUrl, req.user?.id, now, now])
+    
+    // 同步材料到项目材料清单
+    if (materials.length > 0 && projectId) {
+      for (const m of materials) {
+        const matId = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+        await run(`INSERT INTO materials (id, projectId, name, specification, unit, quantity, unitPrice, totalPrice, remarks, supplier, type, contractId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [matId, projectId, m.name, m.specification, m.unit, Number(m.quantity) || 0, Number(m.unitPrice) || 0, Number(m.totalPrice) || 0, m.remarks, supplierName, m.category || '材料清单', id, now, now])
+      }
+    }
+    
+    const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [id]))[0]
+    contract.materialList = materials
+    res.json(contract)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 更新合同
+app.put('/api/supplier-contracts/:id', auth, contractUpload.single('contractFile'), async (req, res) => {
+  try {
+    const contractId = req.params.id
+    const existing = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [contractId]))[0]
+    if (!existing) return res.status(404).json({ error: '合同不存在' })
+    
+    const { contractName, supplierId, supplierName, contractAmount, paymentMethod, materialList } = req.body
+    const now = new Date().toISOString()
+    
+    let contractFileUrl = existing.contractFileUrl
+    if (req.file) {
+      contractFileUrl = '/uploads/contracts/' + req.file.filename
+    }
+    
+    let materials = []
+    try {
+      materials = typeof materialList === 'string' ? JSON.parse(materialList) : (materialList || [])
+    } catch { materials = [] }
+    
+    await run(`UPDATE supplier_contracts SET contractName = ?, supplierId = ?, supplierName = ?, contractAmount = ?, paymentMethod = ?, materialList = ?, contractFileUrl = ?, updatedAt = ? WHERE id = ?`,
+      [contractName, supplierId, supplierName, Number(contractAmount) || 0, paymentMethod, JSON.stringify(materials), contractFileUrl, now, contractId])
+    
+    const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [contractId]))[0]
+    contract.materialList = materials
+    res.json(contract)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 删除合同
+app.delete('/api/supplier-contracts/:id', auth, async (req, res) => {
+  try {
+    const contractId = req.params.id
+    // 删除关联的材料
+    await run(`DELETE FROM materials WHERE contractId = ?`, [contractId])
+    await run(`DELETE FROM supplier_contracts WHERE id = ?`, [contractId])
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 归档合同
+app.post('/api/supplier-contracts/:id/archive', auth, async (req, res) => {
+  try {
+    const now = new Date().toISOString()
+    await run(`UPDATE supplier_contracts SET isArchived = 1, updatedAt = ? WHERE id = ?`, [now, req.params.id])
+    const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [req.params.id]))[0]
+    res.json(contract)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 审批合同
+app.post('/api/supplier-contracts/:id/approve', auth, async (req, res) => {
+  try {
+    const { approved, comments } = req.body
+    const now = new Date().toISOString()
+    const status = approved ? 'approved' : 'rejected'
+    await run(`UPDATE supplier_contracts SET approvalStatus = ?, updatedAt = ? WHERE id = ?`, [status, now, req.params.id])
+    
+    const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [req.params.id]))[0]
+    
+    // 发送通知给董事长、总经理和财务主管
+    const chairmanUsers = await all(`SELECT * FROM users WHERE role = 'chairman'`)
+    const gmUsers = await all(`SELECT * FROM users WHERE role = 'gm'`)
+    const financeUsers = await all(`SELECT * FROM users WHERE role = 'finance_manager'`)
+    const notificationUsers = [...chairmanUsers, ...gmUsers, ...financeUsers]
+    
+    const statusText = approved ? '已通过审批' : '审批被拒绝'
+    for (const user of notificationUsers) {
+      const notificationId = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+      await run(`INSERT INTO notifications (id, userId, title, message, type, isRead, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [notificationId, user.id, '合同审批通知', `合同"${contract.contractName}"${statusText}`, 'approval', 0, now])
+    }
+    
+    res.json(contract)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ===== 材料清单 API =====
+// 获取项目材料列表
+app.get('/api/projects/:projectId/materials', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT * FROM materials WHERE projectId = ? ORDER BY type ASC, createdAt DESC`, [req.params.projectId])
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 添加材料
+app.post('/api/projects/:projectId/materials', auth, async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const now = new Date().toISOString()
+    const { serialNumber, name, specification, unit, quantity, unitPrice, totalPrice, remarks, supplier, type } = req.body
+    
+    await run(`INSERT INTO materials (id, projectId, serialNumber, name, specification, unit, quantity, unitPrice, totalPrice, remarks, supplier, type, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.projectId, serialNumber, name, specification, unit, Number(quantity) || 0, Number(unitPrice) || 0, Number(totalPrice) || 0, remarks, supplier, type || '材料清单', now, now])
+    
+    const material = (await all(`SELECT * FROM materials WHERE id = ?`, [id]))[0]
+    res.json(material)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 更新材料
+app.put('/api/projects/:projectId/materials/:materialId', auth, async (req, res) => {
+  try {
+    const { name, specification, unit, quantity, unitPrice, totalPrice, remarks, supplier, type } = req.body
+    const now = new Date().toISOString()
+    
+    await run(`UPDATE materials SET name = ?, specification = ?, unit = ?, quantity = ?, unitPrice = ?, totalPrice = ?, remarks = ?, supplier = ?, type = ?, updatedAt = ? WHERE id = ? AND projectId = ?`,
+      [name, specification, unit, Number(quantity) || 0, Number(unitPrice) || 0, Number(totalPrice) || 0, remarks, supplier, type || '材料清单', now, req.params.materialId, req.params.projectId])
+    
+    const material = (await all(`SELECT * FROM materials WHERE id = ?`, [req.params.materialId]))[0]
+    res.json(material)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 删除材料
+app.delete('/api/projects/:projectId/materials/:materialId', auth, async (req, res) => {
+  try {
+    await run(`DELETE FROM materials WHERE id = ? AND projectId = ?`, [req.params.materialId, req.params.projectId])
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 批量删除材料
+app.post('/api/projects/:projectId/materials/batch-delete', auth, async (req, res) => {
+  try {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '请选择要删除的材料' })
+    }
+    const placeholders = ids.map(() => '?').join(',')
+    await run(`DELETE FROM materials WHERE id IN (${placeholders}) AND projectId = ?`, [...ids, req.params.projectId])
+    res.json({ ok: true, deleted: ids.length })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 批量导入材料
+app.post('/api/projects/:projectId/materials/import', auth, async (req, res) => {
+  try {
+    const { rows } = req.body
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: '没有数据可导入' })
+    }
+    
+    const now = new Date().toISOString()
+    let imported = 0
+    
+    for (const row of rows) {
+      const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+      await run(`INSERT INTO materials (id, projectId, serialNumber, name, specification, unit, quantity, unitPrice, totalPrice, remarks, supplier, type, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, req.params.projectId, row.serialNumber, row.name, row.specification, row.unit, Number(row.quantity) || 0, Number(row.unitPrice) || 0, Number(row.totalPrice) || 0, row.remarks, row.supplier, row.type || '材料清单', now, now])
+      imported++
+    }
+    
+    res.json({ ok: true, imported })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 导出材料为Excel
+const XLSX = require('xlsx')
+app.get('/api/projects/:projectId/materials/export-xlsx', auth, async (req, res) => {
+  try {
+    const materials = await all(`SELECT * FROM materials WHERE projectId = ? ORDER BY type ASC, createdAt ASC`, [req.params.projectId])
+    
+    // 按类型分组
+    const groups = { '材料清单': [], '施工清单': [], '调试清单': [] }
+    materials.forEach(m => {
+      const t = m.type || '材料清单'
+      if (!groups[t]) groups[t] = []
+      groups[t].push(m)
+    })
+    
+    const workbook = XLSX.utils.book_new()
+    
+    for (const [sheetName, items] of Object.entries(groups)) {
+      const data = [['序号', '名称', '规格', '单位', '数量', '单价', '总价', '备注', '供应商']]
+      items.forEach((m, i) => {
+        data.push([i + 1, m.name, m.specification, m.unit, m.quantity, m.unitPrice, m.totalPrice, m.remarks, m.supplier])
+      })
+      const worksheet = XLSX.utils.aoa_to_sheet(data)
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+    }
+    
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', 'attachment; filename=materials.xlsx')
+    res.send(buffer)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 材料搜索（跨项目）
+app.get('/api/materials/search', auth, async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim()
+    if (!q) return res.json([])
+    
+    const rows = await all(`SELECT DISTINCT name, specification, unit, unitPrice, supplier FROM materials WHERE name LIKE ? LIMIT 20`, [`%${q}%`])
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 材料分类
+app.get('/api/projects/:projectId/material-categories', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT DISTINCT type FROM materials WHERE projectId = ?`, [req.params.projectId])
+    res.json(rows.map(r => r.type))
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.post('/api/projects/:projectId/material-categories', auth, async (req, res) => {
+  try {
+    const { name } = req.body
+    res.json({ ok: true, name })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+
+// ===== 供应商产品 API =====
+// 确保供应商产品表存在
+;(async () => {
+  try {
+    await run(`CREATE TABLE IF NOT EXISTS supplier_products (
+      id TEXT PRIMARY KEY,
+      supplierId TEXT NOT NULL,
+      productName TEXT NOT NULL,
+      specification TEXT,
+      unit TEXT,
+      unitPrice REAL DEFAULT 0,
+      category TEXT,
+      description TEXT,
+      createdAt TEXT,
+      updatedAt TEXT,
+      FOREIGN KEY(supplierId) REFERENCES suppliers(id)
+    )`)
+    
+    await run(`CREATE TABLE IF NOT EXISTS supplier_evaluations (
+      id TEXT PRIMARY KEY,
+      supplierName TEXT NOT NULL,
+      projectId TEXT,
+      contractId TEXT,
+      rating INTEGER DEFAULT 5,
+      qualityScore INTEGER DEFAULT 5,
+      deliveryScore INTEGER DEFAULT 5,
+      serviceScore INTEGER DEFAULT 5,
+      comments TEXT,
+      evaluatedBy TEXT,
+      evaluatedAt TEXT
+    )`)
+  } catch (e) {
+    console.error('创建供应商产品/评价表失败:', e)
+  }
+})()
+
+// 获取供应商产品
+app.get('/api/suppliers/:supplierId/products', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT * FROM supplier_products WHERE supplierId = ? ORDER BY productName ASC`, [req.params.supplierId])
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 创建供应商产品
+app.post('/api/suppliers/:supplierId/products', auth, async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const now = new Date().toISOString()
+    const { productName, specification, unit, unitPrice, category, description } = req.body
+    
+    await run(`INSERT INTO supplier_products (id, supplierId, productName, specification, unit, unitPrice, category, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.supplierId, productName, specification, unit, Number(unitPrice) || 0, category, description, now, now])
+    
+    const product = (await all(`SELECT * FROM supplier_products WHERE id = ?`, [id]))[0]
+    res.json(product)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ===== 合同付款记录 API =====
+// 确保付款记录表存在
+;(async () => {
+  try {
+    await run(`CREATE TABLE IF NOT EXISTS contract_payments (
+      id TEXT PRIMARY KEY,
+      contractId TEXT NOT NULL,
+      contractNo TEXT,
+      contractName TEXT,
+      supplierName TEXT,
+      paymentAmount REAL DEFAULT 0,
+      paymentDate TEXT,
+      paymentMethod TEXT,
+      invoiceNo TEXT,
+      remarks TEXT,
+      createdBy TEXT,
+      createdAt TEXT,
+      updatedAt TEXT,
+      FOREIGN KEY(contractId) REFERENCES supplier_contracts(id)
+    )`)
+  } catch (e) {
+    console.error('创建付款记录表失败:', e)
+  }
+})()
+
+// 获取合同付款记录
+app.get('/api/contracts/:contractId/payments', auth, async (req, res) => {
+  try {
+    const rows = await all(`SELECT * FROM contract_payments WHERE contractId = ? ORDER BY paymentDate DESC`, [req.params.contractId])
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 创建合同付款记录
+app.post('/api/contracts/:contractId/payments', auth, async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const now = new Date().toISOString()
+    const { paymentAmount, paymentDate, paymentMethod, invoiceNo, remarks } = req.body
+    
+    // 获取合同信息
+    const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [req.params.contractId]))[0]
+    if (!contract) {
+      return res.status(404).json({ error: '合同不存在' })
+    }
+    
+    await run(`INSERT INTO contract_payments (id, contractId, contractNo, contractName, supplierName, paymentAmount, paymentDate, paymentMethod, invoiceNo, remarks, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, req.params.contractId, contract.contractNo, contract.contractName, contract.supplierName, Number(paymentAmount) || 0, paymentDate, paymentMethod, invoiceNo, remarks, req.user?.id, now, now])
+    
+    // 发送通知给董事长、总经理和财务主管
+    const chairmanUsers = await all(`SELECT * FROM users WHERE role = 'chairman'`)
+    const gmUsers = await all(`SELECT * FROM users WHERE role = 'gm'`)
+    const financeUsers = await all(`SELECT * FROM users WHERE role = 'finance_manager'`)
+    
+    const notificationUsers = [...chairmanUsers, ...gmUsers, ...financeUsers]
+    
+    for (const user of notificationUsers) {
+      const notificationId = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+      await run(`INSERT INTO notifications (id, userId, title, message, type, isRead, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [notificationId, user.id, '合同付款通知', `合同"${contract.contractName}"已付款 ¥${paymentAmount}`, 'payment', 0, now])
+    }
+    
+    const payment = (await all(`SELECT * FROM contract_payments WHERE id = ?`, [id]))[0]
+    res.json(payment)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ===== 供应商评价 API =====
+// 获取供应商评价
+app.get('/api/supplier-evaluations', auth, async (req, res) => {
+  try {
+    const { supplierName, projectId } = req.query
+    let sql = `SELECT * FROM supplier_evaluations WHERE 1=1`
+    const params = []
+    
+    if (supplierName) {
+      sql += ` AND supplierName = ?`
+      params.push(supplierName)
+    }
+    
+    if (projectId) {
+      sql += ` AND projectId = ?`
+      params.push(projectId)
+    }
+    
+    sql += ` ORDER BY evaluatedAt DESC`
+    const rows = await all(sql, params)
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// 创建供应商评价
+app.post('/api/supplier-evaluations', auth, async (req, res) => {
+  try {
+    const id = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))
+    const now = new Date().toISOString()
+    const { supplierName, projectId, contractId, rating, qualityScore, deliveryScore, serviceScore, comments } = req.body
+    
+    await run(`INSERT INTO supplier_evaluations (id, supplierName, projectId, contractId, rating, qualityScore, deliveryScore, serviceScore, comments, evaluatedBy, evaluatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, supplierName, projectId, contractId, rating || 5, qualityScore || 5, deliveryScore || 5, serviceScore || 5, comments, req.user?.id, now])
+    
+    const evaluation = (await all(`SELECT * FROM supplier_evaluations WHERE id = ?`, [id]))[0]
+    res.json(evaluation)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

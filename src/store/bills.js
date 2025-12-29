@@ -51,7 +51,7 @@ export async function setBills(bills) {
   }
 }
 
-export async function createBill({ title, amount, category, date }) {
+export async function createBill({ title, amount, category, date, projectId }) {
   const creator = getCurrentUser();
   const steps = [...await getApprovalOrder(), 'accountant'];
   const payload = {
@@ -59,6 +59,7 @@ export async function createBill({ title, amount, category, date }) {
     amount: Number(amount || 0),
     category,
     date,
+    projectId,
     createdBy: creator?.id || 'admin',
     status: 'pending',
     steps,

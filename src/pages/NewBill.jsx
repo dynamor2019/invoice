@@ -9,6 +9,8 @@ import { TextField, Button, Select, MenuItem, InputLabel, FormControl } from '@m
 export default function NewBill() {
   const navigate = useNavigate()
   const [reasons, setReasons] = useState([])
+  const [projects, setProjects] = useState([])
+  const [selectedProject, setSelectedProject] = useState('')
   const [rows, setRows] = useState([{ amount: '', catId: null, itemId: null, note: '', date: '', files: [], previewUrls: [] }])
   const [submitMsg, setSubmitMsg] = useState('')
   const [uploadMsg, setUploadMsg] = useState('')
@@ -19,6 +21,26 @@ export default function NewBill() {
 
 const API_BASE = getApiBase()
 const API_HOST = getApiHost()
+
+  // 加载项目列表
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = getCurrentUser()
+        if (!user?.token) return
+        
+        const response = await fetch(`${API_BASE}/projects`, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setProjects(data)
+        }
+      } catch (e) {
+        console.warn('load projects failed', e)
+      }
+    })()
+  }, [])
 
   // 加载事由分级与默认选择
   useEffect(() => {
@@ -75,6 +97,13 @@ const API_HOST = getApiHost()
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    
+    // 检查是否选择了项目
+    if (!selectedProject) {
+      alert('请选择关联项目')
+      return
+    }
+    
     // 打开确认卡片，由用户确认后再真正提交
     setConfirmOpen(true)
   }
@@ -93,7 +122,7 @@ const API_HOST = getApiHost()
         const catName = cat?.name || '其他'
         const itemName = item?.name || '未分类'
         const title = r.note ? `${itemName} - ${r.note}` : itemName
-        bill = await createBill({ title, amount: r.amount, category: catName, date: r.date })
+        bill = await createBill({ title, amount: r.amount, category: catName, date: r.date, projectId: selectedProject })
       } catch (err) {
         alert(err?.message || '创建票据失败，请先登录或稍后再试')
         // 若未登录导致 401，跳转登录
@@ -171,6 +200,9 @@ const API_HOST = getApiHost()
               <div className="text-xs text-gray-500">请核对后再提交</div>
             </div>
             <div className="space-y-[2px] max-h-[70vh] overflow-auto">
+              <div className="rounded border border-gray-200 p-2 mb-2">
+                <div className="text-sm font-medium">关联项目：{projects.find(p => p.id === selectedProject)?.name || '未选择'}</div>
+              </div>
               {rows.map((r, idx) => (
                 <div key={idx} className="rounded border border-gray-200 p-2">
                   <div className="grid grid-cols-2 gap-[2px] text-sm">
@@ -232,6 +264,23 @@ const API_HOST = getApiHost()
         </div>
       ) : null}
       <form onSubmit={onSubmit} className="space-y-[2px] bg-white rounded-lg border border-primary/20 p-3">
+        <div className="mb-4">
+          <FormControl fullWidth size="small" required>
+            <InputLabel id="project-label">关联项目 *</InputLabel>
+            <Select
+              labelId="project-label"
+              label="关联项目 *"
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+            >
+              {projects.map(project => (
+                <MenuItem key={project.id} value={project.id}>
+                  {project.name} ({project.code})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </div>
         {rows.map((r, idx) => (
           <div key={idx} className="space-y-3 border-b last:border-b-0 pb-3">
             <div className="flex justify-between items-center">

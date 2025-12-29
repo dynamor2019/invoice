@@ -1,0 +1,54 @@
+const http = require('http');
+
+// 1. 获取 Token (我们需要一个有效的 Token，或者我们可以临时修改 server 代码去掉 auth 验证来测试，但最好还是模拟登录)
+// 为了快速测试，我们直接读取数据库里的用户，或者创建一个测试用户
+// 但这里我们没有登录接口的密码加密逻辑（它是 md5 还是 bcrypt？看代码是明文还是？）
+// 让我们看下 server/index.cjs 的登录逻辑
+
+// 更好的办法：直接修改 server/index.cjs，在 /api/materials/search 接口里打印日志，看看有没有收到请求，参数是什么，查到了什么。
+// 这样最直接。
+
+const fs = require('fs');
+const path = require('path');
+
+const serverPath = path.join(__dirname, 'server/index.cjs');
+let content = fs.readFileSync(serverPath, 'utf8');
+
+// 添加调试日志
+const logCode = `
+    const q = String(req.query.q || '').trim()
+    console.log('[DEBUG] Search query:', q); // <--- Added log
+    if (!q) return res.json([])
+    
+    // Search for distinct materials across all projects matching the name
+    // Limit to 20 results to avoid overwhelming the user
+    const rows = await all(\`
+        SELECT DISTINCT name, specification, unit, unitPrice 
+        FROM materials 
+        WHERE name LIKE ? 
+        ORDER BY createdAt DESC 
+        LIMIT 20
+    \`, [\`%\${q}%\`])
+    console.log('[DEBUG] Search results count:', rows.length); // <--- Added log
+`;
+
+// 找到原代码位置进行替换
+const oldCode = `
+    const q = String(req.query.q || '').trim()
+    if (!q) return res.json([])
+    
+    // Search for distinct materials across all projects matching the name
+    // Limit to 20 results to avoid overwhelming the user
+    const rows = await all(\`
+        SELECT DISTINCT name, specification, unit, unitPrice 
+        FROM materials 
+        WHERE name LIKE ? 
+        ORDER BY createdAt DESC 
+        LIMIT 20
+    \`, [\`%\${q}%\`])
+`;
+
+// 替换（注意：原代码里可能有换行符差异，使用 SearchReplace 工具更安全，但我这里想先写个测试脚本来触发请求）
+// 不，直接用 SearchReplace 修改 server 代码加日志最稳妥。
+
+console.log('Use SearchReplace tool instead.');

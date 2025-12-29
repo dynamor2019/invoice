@@ -14,6 +14,8 @@ import Settings from './pages/Settings.jsx'
 import { getCurrentUser, seedUsers } from './store/users'
 import Stats from './pages/Stats.jsx'
 import HierarchyEditor from './pages/HierarchyEditor.jsx'
+import Projects from './pages/Projects.jsx'
+import SupplierLibrary from './pages/SupplierLibrary.jsx'
  
 // WeChat (微信) 内置浏览器检测：为 html 添加标记类（支持 ?wechat=1/0 模拟）
 try {
@@ -46,6 +48,8 @@ try {
             <Route path="/" element={<App />}> 
             <Route index element={<AuthIndex />} />
             <Route path="home" element={<RequireUser><RequireNonAdmin><Home /></RequireNonAdmin></RequireUser>} />
+            <Route path="projects" element={<RequireUser><RequireNonAdmin><Projects /></RequireNonAdmin></RequireUser>} />
+            <Route path="supplier-library" element={<RequireUser><RequireNonAdmin><SupplierLibrary /></RequireNonAdmin></RequireUser>} />
             {/* 取消单独的审批页面，统一在详情页处理 */}
             <Route path="bill/:id" element={<RequireUser><RequireNonAdmin><BillDetail /></RequireNonAdmin></RequireUser>} />
             <Route path="new" element={<RequireUser><RequireNonAdmin><NewBill /></RequireNonAdmin></RequireUser>} />
@@ -65,7 +69,7 @@ try {
 function AuthIndex() {
   const u = getCurrentUser()
   if (!u) return <Navigate to="/login" replace />
-  return <Navigate to={u.role === 'admin' ? '/admin' : '/home'} replace />
+  return <Navigate to={u.role === 'admin' ? '/admin' : '/projects'} replace />
 }
 
 function RequireUser({ children }) {

@@ -24,12 +24,22 @@ export default function Login() {
 
   const orderUsers = (list) => {
     if (!Array.isArray(list)) return []
+    
+    // 按照指定顺序排列用户
     const admin = list.find(u => u.role === 'admin')
-    const a1 = list.find(u => u.role === 'approver1')
-    const a2 = list.find(u => u.role === 'approver2')
-    const a3 = list.find(u => u.role === 'approver3')
+    const chairman = list.find(u => u.role === 'chairman')        // 李总
+    const viceChairman = list.find(u => u.role === 'vice_chairman') // 孙总
+    const gm = list.find(u => u.role === 'gm')                   // 李长春
+    const pm = list.find(u => u.role === 'project_manager')      // 项目经理
+    const proc = list.find(u => u.role === 'procurement_manager') // 采购经理
+    const cost = list.find(u => u.role === 'cost_manager')       // 造价经理
+    const finance = list.find(u => u.role === 'finance_manager') // 财务经理
+    
+    // 其他用户按原来的逻辑排序
     const staffSorted = list.filter(u => u.role === 'staff').sort((x, y) => extractNum(x.id) - extractNum(y.id))
-    const prioritized = [admin, a1, a2, a3, ...staffSorted.slice(0, 15)].filter(Boolean)
+    
+    // 按指定顺序组合
+    const prioritized = [admin, chairman, viceChairman, gm, pm, proc, cost, finance, ...staffSorted.slice(0, 15)].filter(Boolean)
     const remaining = list.filter(u => !prioritized.includes(u))
     return [...prioritized, ...remaining]
   }
@@ -39,7 +49,7 @@ export default function Login() {
       // 若已登录，按角色自动分流，避免误入错误页面
       const cu = getCurrentUser()
       if (cu) {
-        navigate(cu.role === 'admin' ? '/admin' : '/home', { replace: true })
+        navigate(cu.role === 'admin' ? '/admin' : '/projects', { replace: true })
         return
       }
       try {
@@ -84,47 +94,102 @@ export default function Login() {
   // 密码修改逻辑已迁移至设置页面
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 px-4 flex items-center justify-center">
-      <div className="w-full max-w-sm bg-white/95 backdrop-blur rounded-xl shadow-lg p-5 border border-white/30">
-        <div className="mb-4 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 text-center">账号登录</h2>
-          <p className="text-xs text-gray-500 mt-1 text-center hide-in-wechat">请选择账号并输入密码继续</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 px-4 flex items-center justify-center relative overflow-hidden">
+      {/* 背景装饰 */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
+      </div>
+      
+      <div className="modern-card w-full max-w-md p-8 animate-fade-in-up relative z-10">
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">财务管理系统</h2>
+          <p className="text-gray-600 text-sm">请选择账号并输入密码登录</p>
         </div>
-        <form onSubmit={onSubmit} className="space-y-3">
+        
+        <form onSubmit={onSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">选择账号</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">选择账号</label>
             <select
               value={id}
               onChange={(e) => setId(e.target.value)}
-              className="w-full rounded-lg border border-primary/30 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              className="modern-input w-full"
             >
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
           </div>
+          
           <div>
-            <label className="block text-sm text-gray-600 mb-1">密码</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">密码</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-primary/30 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              className="modern-input w-full"
               placeholder="请输入密码"
             />
           </div>
-          {msg && <div className="text-xs text-red-600">{msg}</div>}
-          <div>
-            <button type="submit" className="w-full bg-blue-600 text-white rounded-lg py-2 shadow active:opacity-90">登录</button>
-          </div>
+          
+          {msg && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {msg}
+            </div>
+          )}
+          
+          <button type="submit" className="modern-btn w-full">
+            <span className="flex items-center justify-center">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              登录系统
+            </span>
+          </button>
         </form>
-        <div id="problems_and_diagnostics" className="mt-4 text-xs text-gray-600 border-t border-gray-200 pt-3">
-          <h2 className="text-sm font-semibold">诊断信息</h2>
-          <p>API 地址：{diag.apiBase}</p>
-          <p>服务器连通：{diag.pingOk ? '正常' : '不可用'}</p>
-          <p>用户数量：{diag.usersCount ?? '-'}</p>
-          <p>管理员存在：{diag.hasAdmin === null ? '-' : (diag.hasAdmin ? '是' : '否')}</p>
-          {diag.lastError ? <p className="text-red-600">最近错误：{diag.lastError}</p> : null}
+        
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            系统状态
+          </h3>
+          <div className="space-y-2 text-xs text-gray-600">
+            <div className="flex justify-between items-center">
+              <span>API 地址</span>
+              <span className="font-mono text-blue-600">{diag.apiBase}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>服务器连通</span>
+              <span className={`modern-badge ${diag.pingOk ? 'badge-success' : 'badge-danger'}`}>
+                {diag.pingOk ? '正常' : '不可用'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>用户数量</span>
+              <span className="font-semibold">{diag.usersCount ?? '-'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>管理员存在</span>
+              <span className={`modern-badge ${diag.hasAdmin ? 'badge-success' : 'badge-warning'}`}>
+                {diag.hasAdmin === null ? '-' : (diag.hasAdmin ? '是' : '否')}
+              </span>
+            </div>
+            {diag.lastError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-xs">
+                  <span className="font-semibold">错误：</span>{diag.lastError}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
