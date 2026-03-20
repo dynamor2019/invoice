@@ -1,26 +1,45 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getApiBase, getApiHost } from '../store/api'
 import { createBill } from '../store/bills'
+import { upload } from '../store/http'
 import { getReasons, findDefaultSelection } from '../store/reasons'
 import { useNavigate } from 'react-router-dom'
 import { getCurrentUser } from '../store/users'
-import { TextField, Button, Select, MenuItem, InputLabel, FormControl } from '@mui/material'
+import { 
+  Add, 
+  Delete, 
+  AttachFile, 
+  Save, 
+  ArrowBack,
+  Receipt,
+  AttachMoney,
+  CalendarToday,
+  Note,
+  Business,
+  Category
+} from '@mui/icons-material'
 
 export default function NewBill() {
   const navigate = useNavigate()
   const [reasons, setReasons] = useState([])
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState('')
-  const [rows, setRows] = useState([{ amount: '', catId: null, itemId: null, note: '', date: '', files: [], previewUrls: [] }])
+  const [rows, setRows] = useState([{ 
+    amount: '', 
+    catId: null, 
+    itemId: null, 
+    note: '', 
+    date: new Date().toISOString().split('T')[0], 
+    files: [], 
+    previewUrls: [] 
+  }])
   const [submitMsg, setSubmitMsg] = useState('')
   const [uploadMsg, setUploadMsg] = useState('')
   const [progress, setProgress] = useState(0)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState('')
-  const [uploadedImages, setUploadedImages] = useState([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-const API_BASE = getApiBase()
-const API_HOST = getApiHost()
+  const API_BASE = getApiBase()
+  const API_HOST = getApiHost()
 
   // 加载项目列表
   useEffect(() => {
@@ -48,387 +67,404 @@ const API_HOST = getApiHost()
       try {
         const list = await getReasons()
         setReasons(list)
-        const def = findDefaultSelection(list)
-        setRows([{ amount: '', catId: def.categoryId, itemId: def.itemId, note: '', date: '', files: [], previewUrls: [] }])
+        
+        // 自动选择默认事由
+        const defaultSelection = findDefaultSelection(list)
+        if (defaultSelection && rows.length > 0) {
+          setRows(prev => prev.map((row, idx) => 
+            idx === 0 ? { ...row, catId: defaultSelection.catId, itemId: defaultSelection.itemId } : row
+          ))
+        }
       } catch (e) {
         console.warn('load reasons failed', e)
       }
     })()
   }, [])
 
-  // 页面获得焦点、收到“事由已更新”广播或跨标签 storage 事件时刷新事由，确保与事由编辑器保存后的数据同步
-  useEffect(() => {
-    const refresh = async () => {
-      try {
-        console.debug('[NewBill] refreshing reasons…')
-        const list = await getReasons()
-        setReasons(list)
-        // 若当前选项无效，重置为默认选择
-        setRows(prev => prev.map(r => {
-          const cat = list.find(c => c.id === r.catId && c.status !== 'disabled') || null
-          const item = cat ? (cat.items || []).find(i => i.id === r.itemId && i.status !== 'disabled') : null
-          if (cat && item) return r
-          const def = findDefaultSelection(list)
-          return { ...r, catId: def.categoryId, itemId: def.itemId }
-        }))
-      } catch { /* ignore */ }
-    }
-    const onFocus = () => { refresh() }
-    const onReasonsUpdated = () => { refresh() }
-    const onStorage = (e) => { if (e?.key === 'reasons_updated_at') refresh() }
-    const onVisibility = () => { if (document.visibilityState === 'visible') refresh() }
-    const onPageShow = () => { refresh() }
-    window.addEventListener('focus', onFocus)
-    window.addEventListener('reasons-updated', onReasonsUpdated)
-    window.addEventListener('storage', onStorage)
-    document.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pageshow', onPageShow)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      window.removeEventListener('reasons-updated', onReasonsUpdated)
-      window.removeEventListener('storage', onStorage)
-      document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pageshow', onPageShow)
-    }
-  }, [])
+  const addRow = () => {
+    setRows(prev => [...prev, { 
+      amount: '', 
+      catId: null, 
+      itemId: null, 
+      note: '', 
+      date: new Date().toISOString().split('T')[0], 
+      files: [], 
+      previewUrls: [] 
+    }])
+  }
 
-  // 预览用于单张弹窗放大显示
-  useEffect(() => () => { if (previewUrl) try { URL.revokeObjectURL(previewUrl) } catch {} }, [previewUrl])
+  const removeRow = (index) => {
+    if (rows.length <= 1) return
+    setRows(prev => prev.filter((_, i) => i !== index))
+  }
 
-  const onSubmit = async (e) => {
+  const updateRow = (index, field, value) => {
+    setRows(prev => prev.map((row, i) => 
+      i === index ? { ...row, [field]: value } : row
+    ))
+  }
+
+  const handleFileChange = (index, files) => {
+    const fileArray = Array.from(files)
+    const previewUrls = fileArray.map(file => URL.createObjectURL(file))
+    
+    updateRow(index, 'files', fileArray)
+    updateRow(index, 'previewUrls', previewUrls)
+  }
+
+  const removeFile = (rowIndex, fileIndex) => {
+    setRows(prev => prev.map((row, i) => {
+      if (i === rowIndex) {
+        const newFiles = row.files.filter((_, fi) => fi !== fileIndex)
+        const newPreviewUrls = row.previewUrls.filter((_, fi) => fi !== fileIndex)
+        // 清理URL对象
+        if (row.previewUrls[fileIndex]) {
+          URL.revokeObjectURL(row.previewUrls[fileIndex])
+        }
+        return { ...row, files: newFiles, previewUrls: newPreviewUrls }
+      }
+      return row
+    }))
+  }
+
+  const getCategoryName = (catId) => {
+    const category = reasons.find(r => String(r.id) === String(catId))
+    return category?.name || ''
+  }
+
+  const getItemName = (catId, itemId) => {
+    const category = reasons.find(r => String(r.id) === String(catId))
+    const item = category?.items?.find(i => String(i.id) === String(itemId))
+    return item?.name || ''
+  }
+
+  const getAvailableItems = (catId) => {
+    const category = reasons.find(r => String(r.id) === String(catId))
+    return category?.items || []
+  }
+
+  const calculateTotal = () => {
+    return rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // 检查是否选择了项目
+    // 验证
     if (!selectedProject) {
       alert('请选择关联项目')
       return
     }
     
-    // 打开确认卡片，由用户确认后再真正提交
-    setConfirmOpen(true)
-  }
-
-  async function doConfirmSubmit() {
-    setConfirmOpen(false)
-    setSubmitMsg('提交成功')
-    setProgress(0)
-    const allUploaded = []
-    for (const r of rows) {
-      let bill
-      try {
-        // 解析选择的分类与项目名称
-        const cat = reasons.find(c => c.id === r.catId) || reasons.find(c => String(c.name) === '其他') || reasons[0]
-        const item = (cat?.items || []).find(i => i.id === r.itemId) || (cat?.items || []).find(i => String(i.name) === '未分类') || (cat?.items || [])[0]
-        const catName = cat?.name || '其他'
-        const itemName = item?.name || '未分类'
-        const title = r.note ? `${itemName} - ${r.note}` : itemName
-        bill = await createBill({ title, amount: r.amount, category: catName, date: r.date, projectId: selectedProject })
-      } catch (err) {
-        alert(err?.message || '创建票据失败，请先登录或稍后再试')
-        // 若未登录导致 401，跳转登录
-        if ((err?.message || '').includes('401')) {
-          return navigate('/login')
-        }
-        return
-      }
-      try {
-        if (Array.isArray(r.files) && r.files.length > 0) {
-          const fd = new FormData()
-          for (const f of r.files) fd.append('images', f)
-          const u = getCurrentUser()
-          const headers = u?.token ? { Authorization: `Bearer ${u.token}` } : {}
-          await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest()
-            xhr.open('POST', `${API_BASE}/bill/${bill.id}/upload`)
-            if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization)
-            xhr.upload.onprogress = (evt) => {
-              if (evt.lengthComputable) {
-                const p = Math.round((evt.loaded / evt.total) * 100)
-                setProgress(p)
-              }
-            }
-            xhr.onload = () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                  const data = JSON.parse(xhr.responseText || '{}')
-                  if (Array.isArray(data.images)) allUploaded.push(...data.images)
-                } catch {}
-                resolve()
-              } else {
-                reject(new Error(xhr.responseText || `上传失败(${xhr.status})`))
-              }
-            }
-            xhr.onerror = () => reject(new Error('网络错误，上传失败'))
-            xhr.send(fd)
-          })
-          // 下一条前重置进度
-          setProgress(0)
-        }
-      } catch (err) {
-        console.warn('upload error', err)
-      }
+    const validRows = rows.filter(row => 
+      row.amount && row.catId && row.itemId && row.date
+    )
+    
+    if (validRows.length === 0) {
+      alert('请至少填写一条完整的报销记录')
+      return
     }
-    if (allUploaded.length > 0) {
-      setUploadedImages(allUploaded)
-      setUploadMsg('附件已上传完成')
-      setTimeout(() => setUploadMsg(''), 2000)
-      setTimeout(() => navigate('/home'), 2000)
-    } else {
-      navigate('/home')
+
+    setIsSubmitting(true)
+    setSubmitMsg('正在提交...')
+    
+    try {
+      for (const row of validRows) {
+        const catName = getCategoryName(row.catId)
+        const itemName = getItemName(row.catId, row.itemId)
+        // 优先使用二级项目名称，没有则使用分类名称
+        const displayCat = itemName || catName
+        const title = row.note ? `${displayCat} - ${row.note}` : displayCat
+
+        const bill = await createBill({
+          title,
+          amount: Number(row.amount),
+          category: displayCat,
+          date: row.date,
+          projectId: selectedProject
+        })
+
+        if (row.files && row.files.length > 0) {
+          const fd = new FormData()
+          for (const f of row.files) fd.append('images', f)
+          await upload(`/bill/${bill.id}/upload`, fd)
+        }
+      }
+
+      setSubmitMsg('提交成功！')
+      
+      setTimeout(() => {
+        navigate('/home')
+      }, 1500)
+      
+    } catch (e) {
+      setSubmitMsg(`提交失败: ${e.message}`)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="space-y-[2px]">
-      <div className="rounded-xl overflow-hidden">
-        <div className="bg-gradient-to-br from-primary to-primary-dark text-white p-4">
-          <div className="flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-label="新建票据">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14l4-4h12c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
-              <path d="M12 7v3H9v2h3v3h2v-3h3v-2h-3V7h-2z"/>
-            </svg>
-            <p className="text-xs opacity-90">填写信息并提交进入审批</p>
+    <div className="min-h-screen p-4 pb-20">
+      {/* 现代化头部 */}
+      <div className="modern-card p-6 mb-6 animate-fade-in-up">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <Receipt className="text-white" sx={{ fontSize: 24 }} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">新建报销单</h1>
+              <p className="text-gray-600">填写报销信息并上传相关凭证</p>
+            </div>
           </div>
+          <button 
+            onClick={() => navigate('/home')}
+            className="modern-btn-secondary flex items-center gap-2"
+          >
+            <ArrowBack sx={{ fontSize: 16 }} />
+            返回
+          </button>
         </div>
       </div>
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-2xl border border-blue-200 w-[90vw] max-w-md p-4 animate-[fadeIn_0.2s_ease-out] scale-100">
-            <div className="text-center mb-[2px]">
-              <div className="text-base font-semibold">确认提交信息</div>
-              <div className="text-xs text-gray-500">请核对后再提交</div>
-            </div>
-            <div className="space-y-[2px] max-h-[70vh] overflow-auto">
-              <div className="rounded border border-gray-200 p-2 mb-2">
-                <div className="text-sm font-medium">关联项目：{projects.find(p => p.id === selectedProject)?.name || '未选择'}</div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* 项目选择 */}
+        <div className="modern-card p-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+          <div className="flex items-center gap-3 mb-4">
+            <Business className="text-blue-500" sx={{ fontSize: 24 }} />
+            <h2 className="text-xl font-semibold text-gray-800">关联项目</h2>
+          </div>
+          
+          <select
+            className="modern-input w-full"
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            required
+          >
+            <option value="">请选择项目</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.name} ({project.code})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 报销明细 */}
+        <div className="modern-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <div className="p-6 border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AttachMoney className="text-green-500" sx={{ fontSize: 24 }} />
+                <h2 className="text-xl font-semibold text-gray-800">报销明细</h2>
               </div>
-              {rows.map((r, idx) => (
-                <div key={idx} className="rounded border border-gray-200 p-2">
-                  <div className="grid grid-cols-2 gap-[2px] text-sm">
-                    <div>金额：{r.amount || '-'}</div>
-                    <div>
-                      事由：{(() => {
-                        const cat = reasons.find(c => c.id === r.catId)
-                        const item = (cat?.items || []).find(i => i.id === r.itemId)
-                        const text = `${cat?.name || '-'} / ${item?.name || '-'}`
-                        return r.note ? `${text} - ${r.note}` : text
-                      })()}
-                    </div>
-                    <div>日期：{r.date || '-'}</div>
-                    <div>附件：{Array.isArray(r.files) && r.files.length > 0 ? `${r.files.length} 张（${r.files.map(f=>f.name).join('，')}）` : '无'}</div>
+              <div className="text-right">
+                <p className="text-sm text-gray-600">总金额</p>
+                <p className="text-2xl font-bold text-green-600">¥{calculateTotal().toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {rows.map((row, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-gray-800">明细 #{index + 1}</h3>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRow(index)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <Delete sx={{ fontSize: 20 }} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 事由分类 */}
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">
+                      <Category sx={{ fontSize: 16 }} className="inline mr-1" />
+                      事由分类 *
+                    </label>
+                    <select
+                      className="modern-input w-full"
+                      value={row.catId || ''}
+                      onChange={(e) => {
+                        updateRow(index, 'catId', e.target.value)
+                        updateRow(index, 'itemId', null) // 重置子项
+                      }}
+                      required
+                    >
+                      <option value="">请选择分类</option>
+                      {reasons.map(category => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  {Array.isArray(r.previewUrls) && r.previewUrls.length > 0 && (
-                    <div className="pt-[2px]">
-                      <div className="text-xs text-gray-600 mb-[2px]">附件预览</div>
-                      <div className="grid grid-cols-3 gap-[2px]">
-                        {r.previewUrls.map((u,i) => (
-                          <img key={i} src={u} alt={`预览${i+1}`} className="w-full h-20 object-cover rounded border cursor-zoom-in" onClick={() => setPreviewUrl(u)} />
-                        ))}
-                      </div>
+
+                  {/* 具体事由 */}
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">具体事由 *</label>
+                    <select
+                      className="modern-input w-full"
+                      value={row.itemId || ''}
+                      onChange={(e) => updateRow(index, 'itemId', e.target.value)}
+                      disabled={!row.catId}
+                      required
+                    >
+                      <option value="">请选择具体事由</option>
+                      {getAvailableItems(row.catId).map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 金额 */}
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">
+                      <AttachMoney sx={{ fontSize: 16 }} className="inline mr-1" />
+                      金额 (元) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="modern-input w-full"
+                      value={row.amount}
+                      onChange={(e) => updateRow(index, 'amount', e.target.value)}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+
+                  {/* 日期 */}
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">
+                      <CalendarToday sx={{ fontSize: 16 }} className="inline mr-1" />
+                      发生日期 *
+                    </label>
+                    <input
+                      type="date"
+                      className="modern-input w-full"
+                      value={row.date}
+                      onChange={(e) => updateRow(index, 'date', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 备注 */}
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">
+                    <Note sx={{ fontSize: 16 }} className="inline mr-1" />
+                    备注说明
+                  </label>
+                  <textarea
+                    className="modern-input w-full h-20 resize-none"
+                    value={row.note}
+                    onChange={(e) => updateRow(index, 'note', e.target.value)}
+                    placeholder="请输入备注信息（可选）"
+                  />
+                </div>
+
+                {/* 文件上传 */}
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">
+                    <AttachFile sx={{ fontSize: 16 }} className="inline mr-1" />
+                    上传凭证
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf"
+                    className="modern-input w-full"
+                    onChange={(e) => handleFileChange(index, e.target.files)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">支持图片和PDF文件，可多选</p>
+                  
+                  {/* 文件预览 */}
+                  {row.previewUrls.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {row.previewUrls.map((url, fileIndex) => (
+                        <div key={fileIndex} className="relative group">
+                          <img
+                            src={url}
+                            alt={`预览 ${fileIndex + 1}`}
+                            className="w-full h-20 object-cover rounded border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index, fileIndex)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-            <div className="flex gap-[2px] pt-[2px]">
-              <Button type="button" variant="outlined" className="flex-1" onClick={() => setConfirmOpen(false)}>返回修改</Button>
-              <Button type="button" variant="contained" className="flex-1" onClick={doConfirmSubmit}>确认提交</Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {submitMsg && (
-        <div className="rounded border border-green-200 bg-green-50 text-green-700 text-xs px-3 py-2">{submitMsg}</div>
-      )}
-      {rows.some(r => Array.isArray(r.files) && r.files.length > 0) ? (
-        <div className="space-y-[2px]">
-          {progress > 0 && progress < 100 && (
-            <div className="w-full bg-gray-200 rounded h-2 overflow-hidden">
-              <div className="bg-blue-600 h-2" style={{ width: `${progress}%` }} />
-            </div>
-          )}
-          {uploadMsg && (
-            <div className="text-xs text-green-700">{uploadMsg}</div>
-          )}
-          {Array.isArray(uploadedImages) && uploadedImages.length > 0 && (
-            <div className="pt-[2px]">
-              <div className="text-xs text-gray-600 mb-[2px]">已上传附件</div>
-              <div className="grid grid-cols-3 gap-[2px]">
-                {uploadedImages.map((img, i) => (
-                  <img key={i} src={`${API_HOST}${img}`} alt={`已上传${i+1}`} className="w-full h-20 object-cover rounded border" />
-                ))}
               </div>
-            </div>
-          )}
-        </div>
-      ) : null}
-      <form onSubmit={onSubmit} className="space-y-[2px] bg-white rounded-lg border border-primary/20 p-3">
-        <div className="mb-4">
-          <FormControl fullWidth size="small" required>
-            <InputLabel id="project-label">关联项目 *</InputLabel>
-            <Select
-              labelId="project-label"
-              label="关联项目 *"
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
+            ))}
+
+            {/* 添加明细按钮 */}
+            <button
+              type="button"
+              onClick={addRow}
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
             >
-              {projects.map(project => (
-                <MenuItem key={project.id} value={project.id}>
-                  {project.name} ({project.code})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <Add sx={{ fontSize: 20 }} />
+              添加报销明细
+            </button>
+          </div>
         </div>
-        {rows.map((r, idx) => (
-          <div key={idx} className="space-y-3 border-b last:border-b-0 pb-3">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-700">票据 #{idx+1}</div>
-              {rows.length > 1 && (
-                <Button type="button" size="small" color="error" onClick={() => {
-                  const next = [...rows]
-                  const olds = next[idx]?.previewUrls || []
-                  for (const u of olds) { try { URL.revokeObjectURL(u) } catch {} }
-                  next.splice(idx, 1)
-                  setRows(next)
-                }}>删除</Button>
-              )}
-            </div>
+
+        {/* 提交按钮 */}
+        <div className="modern-card p-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+          <div className="flex items-center justify-between">
             <div>
-              <TextField
-                fullWidth
-                label="金额"
-                type="number"
-                value={r.amount}
-                onChange={(e) => {
-                  const next = [...rows]; next[idx] = { ...r, amount: e.target.value }; setRows(next)
-                }}
-                size="small"
-              />
+              <p className="text-lg font-semibold text-gray-800">
+                总计: ¥{calculateTotal().toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-600">
+                共 {rows.length} 项明细
+              </p>
             </div>
-            <div>
-              <div className="grid grid-cols-2 gap-3">
-                <FormControl fullWidth size="small">
-                  <InputLabel id={`cat-label-${idx}`}>事由分类</InputLabel>
-                  <Select
-                    labelId={`cat-label-${idx}`}
-                    label="事由分类"
-                    value={r.catId ?? ''}
-                    onChange={(e) => {
-                      const catId = Number(e.target.value) || null
-                      const cat = reasons.find(c => c.id === catId)
-                      const defItem = (cat?.items || []).find(i => i.status !== 'disabled') || null
-                      const next = [...rows]; next[idx] = { ...r, catId, itemId: defItem?.id || null }; setRows(next)
-                    }}
-                  >
-                    {reasons.filter(c=>c.status!=='disabled').map(c => (
-                      <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth size="small">
-                  <InputLabel id={`item-label-${idx}`}>二级项目</InputLabel>
-                  <Select
-                    labelId={`item-label-${idx}`}
-                    label="二级项目"
-                    value={r.itemId ?? ''}
-                    onChange={(e) => {
-                      const itemId = Number(e.target.value) || null
-                      const next = [...rows]; next[idx] = { ...r, itemId }; setRows(next)
-                    }}
-                  >
-                    {(reasons.find(c=>c.id===r.catId)?.items||[]).filter(i=>i.status!=='disabled').map(it => (
-                      <MenuItem key={it.id} value={it.id}>{it.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </div>
-              <TextField
-                fullWidth
-                label="补充说明（可选）"
-                value={r.note}
-                onChange={(e) => { const next = [...rows]; next[idx] = { ...r, note: e.target.value }; setRows(next) }}
-                size="small"
-                sx={{ mt: 1.5 }}
-              />
-            </div>
-            <div>
-              <TextField
-                fullWidth
-                label="日期"
-                type="date"
-                value={r.date}
-                onChange={(e) => { const next = [...rows]; next[idx] = { ...r, date: e.target.value }; setRows(next) }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                sx={{ mt: 1.5 }}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-[2px]">附件上传（票据照片，可多选）</label>
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">请选择图片附件</div>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    const el = document.getElementById(`file-input-${idx}`)
-                    if (el) el.click()
-                  }}
-                >添加附件</Button>
-              </div>
-              <input
-                id={`file-input-${idx}`}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || [])
-                  const next = [...rows]
-                  const olds = next[idx]?.previewUrls || []
-                  for (const u of olds) { try { URL.revokeObjectURL(u) } catch {} }
-                  const previews = files.map(f => URL.createObjectURL(f))
-                  next[idx] = { ...r, files, previewUrls: previews }
-                  setRows(next)
-                }}
-                className="hidden"
-              />
-              {Array.isArray(r.files) && r.files.length > 0 ? (
-                <div className="mt-[2px] text-xs text-gray-500">已选择：{r.files.map(f => f.name).join('，')}</div>
-              ) : (
-                <div className="mt-[2px] text-xs text-gray-400">未选择任何文件</div>
-              )}
-              {Array.isArray(r.previewUrls) && r.previewUrls.length > 0 && (
-                <div className="mt-[2px] grid grid-cols-3 gap-[2px]">
-                  {r.previewUrls.map((u,i) => (
-                    <img key={i} src={u} alt={`预览${i+1}`} className="w-full h-20 object-cover rounded border cursor-zoom-in" onClick={() => setPreviewUrl(u)} />
-                  ))}
-                </div>
-              )}
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/home')}
+                className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || calculateTotal() === 0}
+                className="modern-btn flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save sx={{ fontSize: 16 }} />
+                {isSubmitting ? '提交中...' : '提交报销单'}
+              </button>
             </div>
           </div>
-        ))}
-        <div className="flex gap-[2px]">
-          <Button
-            type="button"
-            variant="outlined"
-            className="flex-1"
-            onClick={() => {
-              const def = findDefaultSelection(reasons)
-              setRows([...rows, { amount: '', catId: def.categoryId, itemId: def.itemId, note: '', date: '', files: [], previewUrls: [] }])
-            }}
-          >+ 添加一条票据</Button>
-          <Button type="submit" variant="contained" className="flex-1">提交</Button>
+          
+          {submitMsg && (
+            <div className={`mt-4 p-3 rounded-lg text-center ${
+              submitMsg.includes('成功') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}>
+              {submitMsg}
+            </div>
+          )}
         </div>
       </form>
-      {previewUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setPreviewUrl('')}>
-          <div className="absolute inset-0 bg-black/70" />
-          <img src={previewUrl} alt="放大预览" className="relative max-w-[92vw] max-h-[88vh] rounded shadow-2xl" />
-        </div>
-      )}
     </div>
   )
 }

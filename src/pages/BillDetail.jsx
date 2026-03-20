@@ -76,7 +76,7 @@ export default function BillDetail() {
 
   // 角色 -> 姓名(工号) 映射（用于老数据 demoteTo=role 的回退显示）
   const canAct = bill.status === 'pending' && user && curSteps[curIdx] === user.role
-  const isAccountantFinal = curSteps[curIdx] === 'accountant'
+  const isAccountantFinal = curSteps[curIdx] === 'accountant' || curSteps[curIdx] === 'finance_manager'
 
   // 新增：基于创建时间生成时间编号（YY-MM-DD-HH-MM）
   const displayNo = (() => {
@@ -193,6 +193,7 @@ export default function BillDetail() {
       <section className="bg-white rounded-lg border border-primary/20 p-3">
         <div className="flex gap-[2px]">
           <div className="flex-1 space-y-[2px]">
+            <div className="text-sm">申请人：{bill.submitterName || '未知'}</div>
             <div className="text-sm">金额：¥{bill.amount.toFixed(2)}</div>
             <div className="text-sm">事由：{bill.title}</div>
             <div className="text-sm">日期：{bill.date}</div>

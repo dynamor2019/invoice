@@ -15,7 +15,9 @@ import { getCurrentUser, seedUsers } from './store/users'
 import Stats from './pages/Stats.jsx'
 import HierarchyEditor from './pages/HierarchyEditor.jsx'
 import Projects from './pages/Projects.jsx'
+import ProjectMaterials from './pages/ProjectMaterials.jsx'
 import SupplierLibrary from './pages/SupplierLibrary.jsx'
+import SupplierContracts from './pages/SupplierContracts.jsx'
  
 // WeChat (微信) 内置浏览器检测：为 html 添加标记类（支持 ?wechat=1/0 模拟）
 try {
@@ -49,7 +51,9 @@ try {
             <Route index element={<AuthIndex />} />
             <Route path="home" element={<RequireUser><RequireNonAdmin><Home /></RequireNonAdmin></RequireUser>} />
             <Route path="projects" element={<RequireUser><RequireNonAdmin><Projects /></RequireNonAdmin></RequireUser>} />
+            <Route path="project-materials/:projectId" element={<RequireUser><RequireNonAdmin><ProjectMaterials /></RequireNonAdmin></RequireUser>} />
             <Route path="supplier-library" element={<RequireUser><RequireNonAdmin><SupplierLibrary /></RequireNonAdmin></RequireUser>} />
+            <Route path="supplier-contracts" element={<RequireUser><RequireNonAdmin><SupplierContracts /></RequireNonAdmin></RequireUser>} />
             {/* 取消单独的审批页面，统一在详情页处理 */}
             <Route path="bill/:id" element={<RequireUser><RequireNonAdmin><BillDetail /></RequireNonAdmin></RequireUser>} />
             <Route path="new" element={<RequireUser><RequireNonAdmin><NewBill /></RequireNonAdmin></RequireUser>} />
@@ -89,5 +93,5 @@ function RequireNonAdmin({ children }) {
 
 function RequireAccountant({ children }) {
   const u = getCurrentUser()
-  return u?.role === 'accountant' ? children : <Navigate to="/home" replace />
+  return (u?.role === 'accountant' || u?.role === 'finance_manager') ? children : <Navigate to="/projects" replace />
 }

@@ -58,12 +58,12 @@ export default function Stats({ embedded = false }) {
     return entries
   }, [archived])
 
-  // 报销人分布（饼图数据）：以 createdBy 聚合已归档金额
-  const byPersonTotals = useMemo(() => {
+  // 报销事项分布：按 category 聚合已归档金额
+  const byCategoryTotals = useMemo(() => {
     const agg = {}
     for (const b of archived) {
       if (!b || b.status !== 'archived') continue
-      const key = b.createdBy || '未知'
+      const key = b.category || '未分类'
       const amt = Number(b.amount) || 0
       agg[key] = (agg[key] || 0) + amt
     }
@@ -71,6 +71,24 @@ export default function Stats({ embedded = false }) {
     const total = entries.reduce((sum, [,v])=> sum+v, 0)
     return { entries, total }
   }, [archived])
+
+  // 工程花费和后勤花费分布
+  const engineeringVsLogistics = useMemo(() => {
+    let engineering = 0
+    let logistics = 0
+    for (const b of archived) {
+      if (!b || b.status !== 'archived') continue
+      const amt = Number(b.amount) || 0
+      const category = b.category || ''
+      // 判断是否为工程类或后勤类
+      if (category.includes('工程') || category.includes('施工') || category.includes('建筑')) {
+        engineering += amt
+      } else if (category.includes('后勤') || category.includes('餐饮') || category.includes('差旅') || category.includes('运输') || category.includes('服务') || category.includes('培训') || category.includes('咨询')) {
+        logistics += amt
+      }
+    }
+    return { engineering, logistics, other: byPersonTotals.total - engineering - logistics }
+  }, [archived, byPersonTotals.total])
 
   const fmtCurrency = (n) => `¥${(Number(n)||0).toFixed(2)}`
 
@@ -104,6 +122,20 @@ export default function Stats({ embedded = false }) {
       const personRows = byPersonTotals.entries.map(([uid, total]) => ({ 报销人: idNameMap[uid] || uid, 报销总额: Number(total) || 0 }))
       const wsPerson = XLSX.utils.json_to_sheet(personRows)
       XLSX.utils.book_append_sheet(wb, wsPerson, '按人汇总')
+
+      // 按事项汇总
+      const categoryRows = byCategoryTotals.entries.map(([category, total]) => ({ 报销事项: category, 报销总额: Number(total) || 0 }))
+      const wsCategory = XLSX.utils.json_to_sheet(categoryRows)
+      XLSX.utils.book_append_sheet(wb, wsCategory, '按事项汇总')
+
+      // 工程与后勤汇总
+      const engineeringRows = [
+        { 类型: '工程花费', 金额: Number(engineeringVsLogistics.engineering) || 0 },
+        { 类型: '后勤花费', 金额: Number(engineeringVsLogistics.logistics) || 0 },
+        { 类型: '其他花费', 金额: Number(engineeringVsLogistics.other) || 0 }
+      ]
+      const wsEngineering = XLSX.utils.json_to_sheet(engineeringRows)
+      XLSX.utils.book_append_sheet(wb, wsEngineering, '工程与后勤')
 
       const now = new Date()
       const fname = `财务统计_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`
@@ -247,6 +279,72 @@ export default function Stats({ embedded = false }) {
               </div>
             </div>
           )}
+        </section>
+      )}
+
+      {/* 报销事项分布 */}
+      {!loading && archived.length > 0 && (
+        <section className="bg-white rounded-lg border border-primary/20 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm text-gray-700">按报销事项分布</h3>
+            <div className="text-xs text-gray-500">仅统计已归档</div>
+          </div>
+          {byCategoryTotals.total <= 0 ? (
+            <div className="text-xs text-gray-500">暂无数据</div>
+          ) : (
+            <div className="space-y-2">
+              {byCategoryTotals.entries.map(([category, total], idx) => {
+                const percentage = byCategoryTotals.total > 0 ? ((total / byCategoryTotals.total) * 100).toFixed(1) : 0
+                return (
+                  <div key={category} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-gray-700">{category}</span>
+                      <span className="text-gray-600">{fmtCurrency(total)} ({percentage}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 工程与后勤花费对比 */}
+      {!loading && archived.length > 0 && (
+        <section className="bg-white rounded-lg border border-primary/20 p-3">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm text-gray-700">工程与后勤花费对比</h3>
+            <div className="text-xs text-gray-500">仅统计已归档</div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3">
+              <div className="text-xs text-gray-600 mb-1">工程花费</div>
+              <div className="text-lg font-bold text-blue-600">{fmtCurrency(engineeringVsLogistics.engineering)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {byPersonTotals.total > 0 ? ((engineeringVsLogistics.engineering / byPersonTotals.total) * 100).toFixed(1) : 0}%
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3">
+              <div className="text-xs text-gray-600 mb-1">后勤花费</div>
+              <div className="text-lg font-bold text-green-600">{fmtCurrency(engineeringVsLogistics.logistics)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {byPersonTotals.total > 0 ? ((engineeringVsLogistics.logistics / byPersonTotals.total) * 100).toFixed(1) : 0}%
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3">
+              <div className="text-xs text-gray-600 mb-1">其他花费</div>
+              <div className="text-lg font-bold text-orange-600">{fmtCurrency(engineeringVsLogistics.other)}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {byPersonTotals.total > 0 ? ((engineeringVsLogistics.other / byPersonTotals.total) * 100).toFixed(1) : 0}%
+              </div>
+            </div>
+          </div>
         </section>
       )}
     </div>

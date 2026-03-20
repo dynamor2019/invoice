@@ -8,7 +8,7 @@ function App() {
   const navigate = useNavigate()
   const user = getCurrentUser()
   const [companyName, setCompanyName] = useState('')
-  const defaultTitle = '汉德威票据审核'
+  const defaultTitle = '天津华能票据审核'
   const sanitizeTitle = (name) => {
     const n = String(name || '').trim()
     if (!n) return defaultTitle
@@ -57,7 +57,7 @@ function App() {
         </div>
       </header>
       <main className="flex-1 px-4 py-3">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <Outlet />
         </div>
       </main>

@@ -13,10 +13,19 @@ export default defineConfig({
     emptyOutDir: false,
   },
   server: {
-    port: 5173,
+    port: 8080,
+    host: '127.0.0.1',
     proxy: {
-      '/api': 'http://127.0.0.1:6666',
-      '/uploads': 'http://127.0.0.1:6666',
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/uploads': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })

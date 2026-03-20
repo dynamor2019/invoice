@@ -1,166 +1,123 @@
-import { getApiBase } from './api'
-import { getCurrentUser } from './users'
-const API_BASE = getApiBase()
-
-function authHeaders(base = {}) {
-  const u = getCurrentUser()
-  const token = u?.token
-  return token ? { ...base, Authorization: `Bearer ${token}` } : base
-}
-
-async function handleJson(res) {
-  const txt = await res.text()
-  let data = null
-  try { data = txt ? JSON.parse(txt) : null } catch { /* ignore */ }
-  if (!res.ok) {
-    const msg = (data && (data.error || data.message)) || `HTTP ${res.status}`
-    throw new Error(msg)
-  }
-  return data
-}
+import * as http from './http'
 
 export async function listProjects() {
-  const res = await fetch(`${API_BASE}/projects`, { headers: authHeaders() })
-  return handleJson(res)
+  return http.get('/projects')
 }
 
 export async function createProject(formData) {
-  const res = await fetch(`${API_BASE}/projects`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: formData,
-  })
-  return handleJson(res)
+  return http.post('/projects', formData)
 }
 
 export async function updateProject(id, formData) {
-  const res = await fetch(`${API_BASE}/projects/${id}`, {
-    method: 'PUT',
-    headers: authHeaders(),
-    body: formData,
-  })
-  return handleJson(res)
+  return http.put(`/projects/${id}`, formData)
 }
 
 export async function deleteProject(id) {
-  const res = await fetch(`${API_BASE}/projects/${id}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  })
-  return handleJson(res)
+  return http.del(`/projects/${id}`)
 }
 
 export async function uploadProjectAttachments(id, files) {
   const fd = new FormData()
   for (const f of files) fd.append('files', f)
-  const res = await fetch(`${API_BASE}/projects/${id}/attachments`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: fd,
-  })
-  return handleJson(res)
+  return http.upload(`/projects/${id}/attachments`, fd)
 }
 
 export async function listMaterials(projectId) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials`, { headers: authHeaders() })
-  return handleJson(res)
+  return http.get(`/projects/${projectId}/materials`)
 }
 
 export async function addMaterial(projectId, m) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials`, {
-    method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(m),
-  })
-  return handleJson(res)
+  return http.post(`/projects/${projectId}/materials`, m)
 }
 
 export async function updateMaterial(projectId, materialId, m) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials/${materialId}`, {
-    method: 'PUT',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(m),
-  })
-  return handleJson(res)
+  return http.put(`/projects/${projectId}/materials/${materialId}`, m)
 }
 
 export async function deleteMaterial(projectId, materialId) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials/${materialId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  })
-  return handleJson(res)
+  return http.del(`/projects/${projectId}/materials/${materialId}`)
 }
 
 export async function deleteMaterialsBatch(projectId, ids) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials/batch-delete`, {
-    method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ ids }),
-  })
-  return handleJson(res)
+  return http.post(`/projects/${projectId}/materials/batch-delete`, { ids })
 }
 
 export async function listMaterialCategories(projectId) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/material-categories`, { headers: authHeaders() })
-  return handleJson(res)
+  return http.get(`/projects/${projectId}/material-categories`)
 }
 
 export async function addMaterialCategory(projectId, payload) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/material-categories`, {
-    method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload),
-  })
-  return handleJson(res)
+  return http.post(`/projects/${projectId}/material-categories`, payload)
 }
 
 export async function listSuppliers() {
-  const res = await fetch(`${API_BASE}/suppliers`, { headers: authHeaders() })
-  return handleJson(res)
+  return http.get('/suppliers')
 }
 
 export async function addSupplier(s) {
-  const res = await fetch(`${API_BASE}/suppliers`, {
-    method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(s),
-  })
-  return handleJson(res)
+  return http.post('/suppliers', s)
+}
+
+export async function updateSupplier(id, s) {
+  return http.put(`/suppliers/${id}`, s)
+}
+
+export async function deleteSupplier(id) {
+  return http.del(`/suppliers/${id}`)
 }
 
 export async function importMaterialsBatch(projectId, rows) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials/import`, {
-    method: 'POST',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ rows }),
-  })
-  return handleJson(res)
+  return http.post(`/projects/${projectId}/materials/import`, { rows })
 }
 
 export async function exportMaterialsCsv(projectId) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials/export`, { headers: authHeaders() })
+  const res = await http.getRaw(`/projects/${projectId}/materials/export`)
   const txt = await res.text()
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return txt
 }
 
 export async function exportMaterialsXlsx(projectId) {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/materials/export-xlsx`, { headers: authHeaders() })
-  const contentType = res.headers.get('content-type')
-  if (contentType && contentType.includes('application/json')) {
-    const err = await handleJson(res) // Will throw if error
-    return err 
-  }
-  if (contentType && contentType.includes('text/html')) {
-    const text = await res.text()
-    console.error('Export failed: Server returned HTML instead of Excel', text.substring(0, 200))
-    throw new Error('导出失败：服务器返回了网页而非Excel文件，请联系管理员')
-  }
+  const res = await http.getRaw(`/projects/${projectId}/materials/export-xlsx`)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.blob()
 }
+
 export async function searchMaterials(query) {
-  const res = await fetch(`${API_BASE}/materials/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() })
-  return handleJson(res)
+  return http.get(`/materials/search?q=${encodeURIComponent(query)}`)
+}
+
+// Supplier Contracts
+
+export async function listSupplierContracts(params = {}) {
+  const q = new URLSearchParams()
+  if (params.projectId) q.append('projectId', params.projectId)
+  if (params.includeArchived) q.append('includeArchived', 'true')
+  return http.get(`/supplier-contracts?${q.toString()}`)
+}
+
+export async function createSupplierContract(formData) {
+  // formData handles file upload, so we use upload helper if it is FormData
+  // But here we might be passing JSON or FormData. 
+  // Let's check original implementation.
+  // In original: body: formData (if it's FormData, fetch handles Content-Type)
+  // But wait, the previous code had `createProject(formData)` where `body: JSON.stringify(formData)` and `Content-Type: application/json`.
+  // I need to check if `createSupplierContract` uses FormData or JSON.
+  
+  // The backend for `createSupplierContract` uses `contractUpload.single('contractFile')`, so it expects multipart/form-data.
+  // So I should use `http.upload`.
+  return http.upload('/supplier-contracts', formData)
+}
+
+export async function updateSupplierContract(id, formData) {
+  // Backend: app.put('/api/supplier-contracts/:id', auth, contractUpload.single('contractFile'), ...)
+  return http.upload(`/supplier-contracts/${id}`, formData)
+}
+
+export async function archiveSupplierContract(id) {
+  return http.put(`/supplier-contracts/${id}/archive`, {})
+}
+
+export async function deleteSupplierContract(id) {
+  return http.del(`/supplier-contracts/${id}`)
 }

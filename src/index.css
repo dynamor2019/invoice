@@ -1,21 +1,37 @@
 @import "tailwindcss";
 
-/* 基础移动端优化 */
+/* ============================================
+   全网站统一文字系统规范
+   ============================================ */
+
+/* 基础设置 */
 html, body, #root {
   height: 100%;
 }
 
 body {
   color: #111827;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  background-attachment: fixed;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-size: 14px;
+  line-height: 1.5;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
 }
 
-/* 统一段落字体与行内文本大小 */
-p {
-  font-size: inherit;
-}
+/* 标题统一样式 */
+h1 { font-size: 28px; font-weight: 700; line-height: 1.3; letter-spacing: -0.5px; }
+h2 { font-size: 24px; font-weight: 700; line-height: 1.4; letter-spacing: -0.3px; }
+h3 { font-size: 18px; font-weight: 600; line-height: 1.4; }
+h4 { font-size: 16px; font-weight: 600; line-height: 1.5; }
+h5 { font-size: 14px; font-weight: 600; line-height: 1.5; }
+h6 { font-size: 13px; font-weight: 600; line-height: 1.5; }
+
+/* 标签统一样式 */
+label { font-size: 13px; font-weight: 500; line-height: 1.4; }
+
+/* 段落 */
+p { font-size: 14px; line-height: 1.5; }
 
 /* 现代化卡片样式 */
 .modern-card {
@@ -36,64 +52,103 @@ p {
 .modern-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   color: white;
   font-weight: 600;
-  padding: 12px 24px;
+  font-size: 13px;
+  padding: 8px 16px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  line-height: 1.4;
+  cursor: pointer;
 }
 
 .modern-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .modern-btn-secondary {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  transition: all 0.3s ease;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.modern-btn-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
 }
 
 .modern-btn-success {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
   box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  transition: all 0.3s ease;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.modern-btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
 }
 
 /* 现代化输入框样式 */
 .modern-input {
   background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  line-height: 1.4;
+  font-family: inherit;
 }
 
 .modern-input:focus {
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
   outline: none;
 }
 
 /* 现代化表格样式 */
 .modern-table {
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  font-size: 13px;
 }
 
 .modern-table th {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-weight: 600;
-  padding: 16px;
+  font-size: 12px;
+  padding: 10px;
   text-align: left;
+  line-height: 1.4;
 }
 
 .modern-table td {
-  padding: 16px;
+  padding: 10px;
+  font-size: 13px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  line-height: 1.4;
 }
 
 .modern-table tr:hover {
@@ -108,14 +163,16 @@ p {
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
 }
 
-/* 现代化状态标签 */
+/* 现代化状态徽章 */
 .modern-badge {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
+  line-height: 1.3;
+  display: inline-block;
 }
 
 .badge-success {
@@ -144,16 +201,19 @@ select,
 textarea {
   background-color: rgba(255, 255, 255, 0.9);
   color: #111827;
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
+  font-size: 13px;
+  line-height: 1.4;
+  font-family: inherit;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
   outline: none;
 }
 
@@ -163,16 +223,20 @@ textarea:focus {
 .MuiFilledInput-input {
   background-color: rgba(255, 255, 255, 0.9) !important;
   color: #111827;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
 }
 
 .MuiOutlinedInput-root {
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 
 .MuiButton-root {
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   text-transform: none !important;
   font-weight: 600 !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
 }
 
 /* 动画效果 */
@@ -226,3 +290,122 @@ textarea:focus {
 /* WeChat 浏览器可见性辅助类 */
 .wechat .hide-in-wechat { display: none !important; }
 .non-wechat .show-only-in-wechat { display: none !important; }
+
+/* 实用工具类 */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 2;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 3;
+}
+
+/* 高分辨率屏幕优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* 不同平台字体优化 */
+/* iOS Safari */
+@supports (-webkit-touch-callout: none) {
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  }
+}
+
+/* Android Chrome */
+@media screen and (-webkit-min-device-pixel-ratio: 0) and (min-resolution: .001dpcm) {
+  body {
+    font-family: 'Roboto', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+/* Windows */
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+  body {
+    font-family: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'SimSun', sans-serif;
+  }
+}
+
+/* ============================================
+   移动端优化 (max-width: 768px)
+   ============================================ */
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  
+  h1 { font-size: 20px; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 15px; }
+  h4 { font-size: 13px; }
+  h5, h6 { font-size: 12px; }
+  
+  label { font-size: 12px; }
+  
+  .modern-btn,
+  .modern-btn-secondary,
+  .modern-btn-success {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+  
+  .modern-input {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+  
+  .modern-table {
+    font-size: 12px;
+    border-radius: 8px;
+  }
+  
+  .modern-table th {
+    font-size: 11px;
+    padding: 8px;
+  }
+  
+  .modern-table td {
+    font-size: 12px;
+    padding: 8px;
+  }
+  
+  .modern-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+  
+  input, select, textarea {
+    font-size: 12px !important;
+  }
+}
+
+/* ============================================
+   桌面端优化 (min-width: 769px)
+   ============================================ */
+@media (min-width: 769px) {
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  h1 { font-size: 28px; }
+  h2 { font-size: 24px; }
+  h3 { font-size: 18px; }
+  h4 { font-size: 16px; }
+  h5, h6 { font-size: 14px; }
+}
