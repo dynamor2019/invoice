@@ -111,6 +111,8 @@ function normalizeBillRow(r) {
   out.history = parseJsonArraySafe(out.history)
   out.images = parseJsonArraySafe(out.images)
   out.relatedId = out.relatedId || null
+  // 确保前端能获取到提交人信息
+  out.submitterId = out.createdBy
   return out
 }
 
@@ -801,7 +803,7 @@ app.post('/api/approval-order', auth, async (req, res) => {
 
 app.get('/api/bills', async (req, res) => {
   try {
-    const rows = await all(`SELECT id, title, amount, category, date, createdBy, status, steps, currentStepIndex, history, images FROM bills ORDER BY date DESC, id DESC`)
+    const rows = await all(`SELECT b.*, u.name as submitterName FROM bills b LEFT JOIN users u ON b.createdBy = u.id ORDER BY b.date DESC, b.id DESC`)
     const parsed = rows.map(r => normalizeBillRow(r))
     res.json(parsed)
   } catch (e) {
@@ -813,7 +815,7 @@ app.get('/api/bills', async (req, res) => {
 app.get('/api/todos/:role', async (req, res) => {
   try {
     const role = String(req.params.role || '').trim()
-    const rows = await all(`SELECT id, title, amount, category, date, createdBy, status, steps, currentStepIndex, history, images FROM bills WHERE status = 'pending' ORDER BY date DESC, id DESC`)
+    const rows = await all(`SELECT b.*, u.name as submitterName FROM bills b LEFT JOIN users u ON b.createdBy = u.id WHERE b.status = 'pending' ORDER BY b.date DESC, b.id DESC`)
     const parsed = rows.map(r => normalizeBillRow(r)).filter(b => Array.isArray(b.steps) && b.steps[b.currentStepIndex] === role)
     res.json(parsed)
   } catch (e) {
@@ -823,7 +825,7 @@ app.get('/api/todos/:role', async (req, res) => {
 
 app.get('/api/bills/archived', async (req, res) => {
   try {
-    const rows = await all(`SELECT id, title, amount, category, date, createdBy, status, steps, currentStepIndex, history, images FROM bills WHERE status = 'archived' ORDER BY date DESC, id DESC`)
+    const rows = await all(`SELECT b.*, u.name as submitterName FROM bills b LEFT JOIN users u ON b.createdBy = u.id WHERE b.status = 'archived' ORDER BY b.date DESC, b.id DESC`)
     const parsed = rows.map(r => normalizeBillRow(r))
     res.json(parsed)
   } catch (e) {
@@ -833,7 +835,7 @@ app.get('/api/bills/archived', async (req, res) => {
 
 app.get('/api/bill/:id', async (req, res) => {
   try {
-    const rows = await all(`SELECT id, title, amount, category, date, createdBy, status, steps, currentStepIndex, history, images, relatedId FROM bills WHERE id = ? LIMIT 1`, [req.params.id])
+    const rows = await all(`SELECT b.*, u.name as submitterName FROM bills b LEFT JOIN users u ON b.createdBy = u.id WHERE b.id = ? LIMIT 1`, [req.params.id])
     const r = rows[0]
     if (!r) return res.status(404).json({ error: '票据不存在' })
     const nr = normalizeBillRow(r)
@@ -856,26 +858,9 @@ app.post('/api/bill', auth, async (req, res) => {
       }
     }
     
-    // 读取审批顺序
-    const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
-    let order = orows.map(r => r.role)
-    if (!Array.isArray(order) || order.length === 0) {
-      order = ['approver1','approver2','approver3']
-    }
-    // 读取免审阈值并按金额裁剪审批步骤
-    let thr = {}
-    try {
-      const rows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
-      thr = JSON.parse(rows[0]?.value || '{}')
-    } catch { thr = {} }
-    const amt = Number(amount) || 0
-    const filtered = order.filter(role => {
-      if (!/^approver[123]$/.test(role)) return true
-      const limit = Number(thr[role]) || 0
-      return !(amt < limit && limit > 0)
-    })
-    // 计算步骤：严格按照配置顺序，从第一个审批人开始，最后追加 accountant
-    const steps = [...filtered, 'accountant']
+    // 动态审批流程逻辑
+    let steps = await getStepsForCategory(category, Number(amount) || 0)
+
     const id = String(req.body?.id || (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8))))
     const nowISO = new Date().toISOString()
     const history = [{ action: 'create', by: createdBy, time: nowISO }]
@@ -890,54 +875,53 @@ app.post('/api/bill', auth, async (req, res) => {
   }
 })
 
-app.post('/api/bill/approve', async (req, res) => {
+app.post('/api/bill/approve', auth, async (req, res) => {
   const { id } = req.body
   try {
     const rows = await all(`SELECT * FROM bills WHERE id = ?`, [id])
     const b = rows[0]
     if (!b) return res.status(404).json({ error: '票据不存在' })
-    // normalize bill fields
+    
+    // 权限检查：必须是当前步骤的审批人，或者是管理员
+    // normalize bill fields first
     try { b.steps = Array.isArray(b.steps) ? b.steps : JSON.parse(b.steps || '[]') } catch { b.steps = [] }
+    b.currentStepIndex = Number(b.currentStepIndex)
+    if (!Number.isFinite(b.currentStepIndex)) b.currentStepIndex = 0
+    // Rebuild steps if needed (same logic as below)
+    if (!Array.isArray(b.steps) || b.steps.length === 0) {
+      b.steps = await getStepsForCategory(b.category, Number(b.amount) || 0)
+      b.currentStepIndex = 0
+    }
+    
+    const expectedRole = b.steps[b.currentStepIndex]
+    const userRole = req.user?.role
+    if (userRole !== 'admin' && userRole !== expectedRole) {
+      return res.status(403).json({ error: `无权审批，当前需要: ${expectedRole}` })
+    }
+
+    // Continue with approval logic...
+    // normalize bill fields (already done partly, but let's keep existing structure or merge)
     try { b.history = Array.isArray(b.history) ? b.history : JSON.parse(b.history || '[]') } catch { b.history = [] }
     if (!Array.isArray(b.history)) b.history = []
     try { b.images = Array.isArray(b.images) ? b.images : JSON.parse(b.images || '[]') } catch { b.images = [] }
-    b.currentStepIndex = Number(b.currentStepIndex)
-    if (!Number.isFinite(b.currentStepIndex)) b.currentStepIndex = 0
-    // if steps empty, rebuild from approval_order + accountant，并应用免审阈值
-    if (!Array.isArray(b.steps) || b.steps.length === 0) {
-      const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
-      let order = orows.map(r => r.role)
-      if (!Array.isArray(order) || order.length === 0) order = ['approver1','approver2','approver3']
-      let thr = {}
-      try {
-        const srows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
-        thr = JSON.parse(srows[0]?.value || '{}')
-      } catch { thr = {} }
-      const amt = Number(b.amount) || 0
-      const filtered = order.filter(role => {
-        if (!/^approver[123]$/.test(role)) return true
-        const limit = Number(thr[role]) || 0
-        return !(amt < limit && limit > 0)
-      })
-      b.steps = [...filtered, 'accountant']
-      b.currentStepIndex = 0
-    }
+    
     // clamp index
     if (b.currentStepIndex < 0 || b.currentStepIndex >= b.steps.length) b.currentStepIndex = 0
+    
     if (b.status !== 'pending') return res.status(400).json({ error: '当前票据不在审批中' })
-    const expected = b.steps[b.currentStepIndex]
-    // 最终以流程当前步骤为准，避免客户端令牌与所需角色不同步导致阻塞
+    const expected = b.steps[b.currentStepIndex] // Should match expectedRole
+    
     const role = expected
-    // default date if empty
     if (!b.date) b.date = new Date().toISOString().slice(0,10)
-    console.log('approve debug', { id: b.id, expected: role, currentStepIndex: b.currentStepIndex, historyType: Array.isArray(b.history) ? 'array' : typeof b.history, historyPreview: (() => { try { return JSON.stringify(b.history).slice(0, 120) } catch { return String(b.history) } })() })
-    b.history.push({ action: 'approve', role: role, time: new Date().toISOString() })
+    
+    console.log('approve debug', { id: b.id, expected: role, currentStepIndex: b.currentStepIndex, historyType: Array.isArray(b.history) ? 'array' : typeof b.history })
+    
+    b.history.push({ action: 'approve', role: role, operator: req.user?.name || req.user?.id, time: new Date().toISOString() })
     if (b.currentStepIndex < b.steps.length - 1) {
       b.currentStepIndex += 1
     } else {
-      // 最后一步：如果为会计，则归档
       const finalRole = b.steps[b.currentStepIndex]
-      b.status = finalRole === 'accountant' ? 'archived' : 'approved'
+      b.status = (finalRole === 'finance_manager' || finalRole === 'accountant') ? 'archived' : 'approved'
     }
     await run(`REPLACE INTO bills (id, title, amount, category, date, createdBy, status, steps, currentStepIndex, history, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
       b.id, b.title, Number(b.amount)||0, b.category, b.date, b.createdBy, b.status, JSON.stringify(b.steps||[]), Number(b.currentStepIndex)||0, JSON.stringify(b.history||[]), JSON.stringify(b.images||[])
@@ -997,21 +981,8 @@ app.post('/api/bill/reject', async (req, res) => {
     b.currentStepIndex = Number(b.currentStepIndex)
     if (!Number.isFinite(b.currentStepIndex)) b.currentStepIndex = 0
     if (!Array.isArray(b.steps) || b.steps.length === 0) {
-      const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
-      let order = orows.map(r => r.role)
-      if (!Array.isArray(order) || order.length === 0) order = ['approver1','approver2','approver3']
-      let thr = {}
-      try {
-        const srows = await all(`SELECT value FROM settings WHERE key = 'approvalThresholds' LIMIT 1`)
-        thr = JSON.parse(srows[0]?.value || '{}')
-      } catch { thr = {} }
-      const amt = Number(b.amount) || 0
-      const filtered = order.filter(role => {
-        if (!/^approver[123]$/.test(role)) return true
-        const limit = Number(thr[role]) || 0
-        return !(amt < limit && limit > 0)
-      })
-      b.steps = [...filtered, 'accountant']
+      // 使用统一的审批流程逻辑
+      b.steps = await getStepsForCategory(b.category, Number(b.amount) || 0)
       b.currentStepIndex = 0
     }
     if (b.currentStepIndex < 0 || b.currentStepIndex >= b.steps.length) b.currentStepIndex = 0
@@ -1281,7 +1252,47 @@ app.post('/api/bill/:id/upload', auth, upload.array('images', 5), async (req, re
   }
 })
 
-const PORT = process.env.PORT || 6666
+// Helper for dynamic steps based on item/category
+// 审批流程：
+// - 工程款项：总经理(gm/李长春) → 董事长(chairman/李总)
+// - 后勤花费：副董事长(vice_chairman/孙总) → 董事长(chairman/李总)
+// - 其他类型：按审批顺序 → 董事长(chairman/李总)
+async function getStepsForCategory(catInput, amt) {
+  // 1. Try to find item match to get parent category
+  let parentCat = ''
+  try {
+    const itemRows = await all(`
+      SELECT c.name as parentName 
+      FROM reason_items i 
+      JOIN reason_categories c ON i.categoryId = c.id 
+      WHERE i.name = ?
+    `, [catInput])
+    if (itemRows.length > 0) {
+      parentCat = itemRows[0].parentName
+    }
+  } catch (e) { /* ignore */ }
+
+  const checkStr = (parentCat || catInput || '').toString()
+
+  if (checkStr.includes('工程')) {
+    // 工程款项：总经理(李长春) → 董事长(李总) → 财务经理
+    return ['gm', 'chairman', 'finance_manager']
+  } else if (checkStr.includes('后勤')) {
+    // 后勤花费：副董事长(孙总) → 董事长(李总) → 财务经理
+    return ['vice_chairman', 'chairman', 'finance_manager']
+  } else {
+    // 其他类型：按审批顺序（无免审阈值）→ 董事长 → 财务经理
+    const orows = await all(`SELECT role FROM approval_order ORDER BY sort ASC`)
+    let order = orows.map(r => r.role)
+    if (!Array.isArray(order) || order.length === 0) {
+      order = ['approver1', 'approver2', 'approver3']
+    }
+    // 直接使用审批顺序，不再应用免审阈值
+    return [...order, 'chairman', 'finance_manager']
+  }
+}
+
+const PORT = process.env.PORT || 3001
 ;(async () => {
   await ensureSchema()
   await seedIfEmpty()
@@ -1311,11 +1322,13 @@ app.get('/api/bill/:id/edits', async (req, res) => {
 })
 
 // ===== 项目管理 API =====
-// 生成项目编码: HN-YYYY-MM-DD-NNN
+// 生成项目编码: HN-year-month-day-000
 async function generateProjectCode() {
   const now = new Date()
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '-')
-  const prefix = `HN-${dateStr}`
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const prefix = `HN-${year}-${month}-${day}`
   const rows = await all(`SELECT code FROM projects WHERE code LIKE ? ORDER BY code DESC LIMIT 1`, [`${prefix}-%`])
   let seq = 1
   if (rows.length > 0) {
@@ -1326,11 +1339,13 @@ async function generateProjectCode() {
   return `${prefix}-${String(seq).padStart(3, '0')}`
 }
 
-// 生成合同编码: HN-CG-YYYY-MM-DD-NNN
+// 生成合同编码: HN-HT-year-month-day-000
 async function generateContractCode() {
   const now = new Date()
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '-')
-  const prefix = `HN-CG-${dateStr}`
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const prefix = `HN-HT-${year}-${month}-${day}`
   const rows = await all(`SELECT contractNo FROM supplier_contracts WHERE contractNo LIKE ? ORDER BY contractNo DESC LIMIT 1`, [`${prefix}-%`])
   let seq = 1
   if (rows.length > 0) {
@@ -2390,3 +2405,17 @@ app.post('/api/supplier-evaluations', auth, async (req, res) => {
     res.status(500).json({ error: e.message })
   }
 })
+
+// Serve static frontend files (added for Production)
+const distPath = path.join(__dirname, '..', 'build_tmp')
+if (fs.existsSync(distPath)) {
+  console.log('Serving static files from', distPath)
+  app.use(express.static(distPath))
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      return res.status(404).json({ error: 'Not Found' })
+    }
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+}
+
