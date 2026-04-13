@@ -1,0 +1,32 @@
+{
+  "file": "scripts/codeguard-cli.py",
+  "updated_at": "2026-04-09T09:45:30",
+  "line_count": 319,
+  "file_hash": "d08246480cd8c1350852a00cec8ab1382fddad853fdb0744a45915626f9fd395",
+  "entries": [
+    {
+      "feature": "Compatibility reason helper",
+      "line": 49
+    },
+    {
+      "feature": "Status command and JSON formatting",
+      "line": 56
+    },
+    {
+      "feature": "Index entry apply workflow",
+      "line": 60
+    },
+    {
+      "feature": "Confirm command compatibility mode",
+      "line": 98
+    },
+    {
+      "feature": "CLI parser and subcommands",
+      "line": 118
+    },
+    {
+      "feature": "Main dispatch and exit code mapping",
+      "line": 244
+    }
+  ]
+}

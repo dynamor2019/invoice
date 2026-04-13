@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/BillDetail.jsx",
+  "updated_at": "2026-04-09T09:45:39",
+  "line_count": 317,
+  "file_hash": "9c560ae59a313504f862639f6b574f56e837fcda421d29ece9aa81a66c11a2c9",
+  "entries": [
+    {
+      "feature": "Bill detail page state bootstrap",
+      "line": 7
+    },
+    {
+      "feature": "Bill and reason data loading effects",
+      "line": 35
+    },
+    {
+      "feature": "Approval action workflow",
+      "line": 107
+    },
+    {
+      "feature": "Reject and resubmit workflows",
+      "line": 135
+    },
+    {
+      "feature": "Readonly and edit-mode UI rendering",
+      "line": 177
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/Stats.jsx",
+  "updated_at": "2026-04-09T09:45:48",
+  "line_count": 352,
+  "file_hash": "e256eaf7367e17b55ace0fdd890e497c7deddad556e2f73d8c3ccec2bca63f5b",
+  "entries": [
+    {
+      "feature": "Stats page state bootstrap",
+      "line": 6
+    },
+    {
+      "feature": "Data load effect and filters",
+      "line": 28
+    },
+    {
+      "feature": "Monthly and category aggregation memos",
+      "line": 47
+    },
+    {
+      "feature": "Engineering logistics aggregation and export",
+      "line": 76
+    },
+    {
+      "feature": "Chart cards and table rendering",
+      "line": 155
+    }
+  ]
+}

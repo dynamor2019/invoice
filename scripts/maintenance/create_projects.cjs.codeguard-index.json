@@ -1,0 +1,24 @@
+{
+  "file": "scripts/maintenance/create_projects.cjs",
+  "updated_at": "2026-04-09T09:45:35",
+  "line_count": 439,
+  "file_hash": "da3ae65ea293fba3feef6181effe3547315dc17c4417b689781185f7ed5abddf",
+  "entries": [
+    {
+      "feature": "SQLite write helper",
+      "line": 8
+    },
+    {
+      "feature": "SQLite query helper",
+      "line": 17
+    },
+    {
+      "feature": "Identifier generation helper",
+      "line": 26
+    },
+    {
+      "feature": "Project seeding workflow",
+      "line": 30
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "file": "server/index.cjs",
+  "updated_at": "2026-04-09T09:45:36",
+  "line_count": 2044,
+  "file_hash": "0b6e9306d5dccac3a72205ccc3bbdc67439088ce262809ce0436f1ef13147d43",
+  "entries": [
+    {
+      "feature": "App bootstrap and middleware setup",
+      "line": 15
+    },
+    {
+      "feature": "Database helpers and bill normalization",
+      "line": 40
+    },
+    {
+      "feature": "Schema bootstrap and initial seed",
+      "line": 84
+    },
+    {
+      "feature": "Authentication and profile endpoints",
+      "line": 324
+    },
+    {
+      "feature": "User and company setting endpoints",
+      "line": 497
+    },
+    {
+      "feature": "Bill workflow endpoints submit approve reject",
+      "line": 789
+    },
+    {
+      "feature": "Reason hierarchy CRUD endpoints",
+      "line": 965
+    },
+    {
+      "feature": "Project and attachment endpoints",
+      "line": 1316
+    },
+    {
+      "feature": "Supplier and contract endpoints",
+      "line": 1475
+    },
+    {
+      "feature": "Project materials import export endpoints",
+      "line": 1697
+    },
+    {
+      "feature": "Supplier products and payments endpoints",
+      "line": 1892
+    },
+    {
+      "feature": "Supplier evaluation endpoints and server startup",
+      "line": 1991
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "file": "src/pages/Admin.jsx",
+  "updated_at": "2026-04-09T09:45:37",
+  "line_count": 592,
+  "file_hash": "f15db7bf99db2e6de9cde3b9c4d75a41ead9d5e8d1a8823b4924b802020df4b7",
+  "entries": [
+    {
+      "feature": "Admin page state bootstrap and initial load",
+      "line": 10
+    },
+    {
+      "feature": "Initial data fetch effect",
+      "line": 23
+    },
+    {
+      "feature": "User password reset action",
+      "line": 59
+    },
+    {
+      "feature": "User save and sync action",
+      "line": 74
+    },
+    {
+      "feature": "Company settings save actions",
+      "line": 130
+    },
+    {
+      "feature": "User creation action and form state",
+      "line": 164
+    },
+    {
+      "feature": "Admin management page rendering",
+      "line": 227
+    }
+  ]
+}

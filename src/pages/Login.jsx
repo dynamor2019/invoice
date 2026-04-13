@@ -38,9 +38,10 @@ export default function Login() {
     // 其他用户按原来的逻辑排序
     const staffSorted = list.filter(u => u.role === 'staff').sort((x, y) => extractNum(x.id) - extractNum(y.id))
     
-    // 按指定顺序组合
+    // 按指定顺序组合，并去重
     const prioritized = [admin, chairman, viceChairman, gm, pm, proc, cost, finance, ...staffSorted.slice(0, 15)].filter(Boolean)
-    const remaining = list.filter(u => !prioritized.includes(u))
+    const prioritizedIds = new Set(prioritized.map(u => u.id))
+    const remaining = list.filter(u => !prioritizedIds.has(u.id))
     return [...prioritized, ...remaining]
   }
 
@@ -109,7 +110,7 @@ export default function Login() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">财务管理系统</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">项目管理系统</h2>
           <p className="text-gray-600 text-sm">请选择账号并输入密码登录</p>
         </div>
         

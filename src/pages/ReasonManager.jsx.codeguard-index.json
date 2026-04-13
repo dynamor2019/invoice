@@ -1,0 +1,32 @@
+{
+  "file": "src/pages/ReasonManager.jsx",
+  "updated_at": "2026-04-09T09:45:47",
+  "line_count": 331,
+  "file_hash": "5bea46e2efacc91f37bb421886a978ece23a6824491584f921ce9eff1fc62499",
+  "entries": [
+    {
+      "feature": "Reason manager state bootstrap",
+      "line": 14
+    },
+    {
+      "feature": "Initial refresh effect and load routine",
+      "line": 54
+    },
+    {
+      "feature": "Category create edit toggle workflows",
+      "line": 58
+    },
+    {
+      "feature": "Reason item create edit toggle workflows",
+      "line": 121
+    },
+    {
+      "feature": "Bulk save and reset workflow",
+      "line": 172
+    },
+    {
+      "feature": "Hierarchy editor rendering and controls",
+      "line": 196
+    }
+  ]
+}

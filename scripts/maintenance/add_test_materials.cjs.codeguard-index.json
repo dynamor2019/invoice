@@ -1,0 +1,20 @@
+{
+  "file": "scripts/maintenance/add_test_materials.cjs",
+  "updated_at": "2026-04-09T09:45:34",
+  "line_count": 201,
+  "file_hash": "3d4e99c041ef070c73139fb604f5020d7539a5b406c3c72c7dca8c99563a5ec8",
+  "entries": [
+    {
+      "feature": "SQLite write helper",
+      "line": 8
+    },
+    {
+      "feature": "SQLite query helper",
+      "line": 17
+    },
+    {
+      "feature": "Test materials seed routine",
+      "line": 26
+    }
+  ]
+}

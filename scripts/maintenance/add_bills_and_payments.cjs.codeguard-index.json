@@ -1,0 +1,24 @@
+{
+  "file": "scripts/maintenance/add_bills_and_payments.cjs",
+  "updated_at": "2026-04-09T09:45:32",
+  "line_count": 266,
+  "file_hash": "8940f4ae9d16580b2eaba36b34a3681f6e3e8d56312eac2e598e4d2649915aa9",
+  "entries": [
+    {
+      "feature": "SQLite write helper",
+      "line": 8
+    },
+    {
+      "feature": "SQLite query helper",
+      "line": 17
+    },
+    {
+      "feature": "Identifier generation helper",
+      "line": 26
+    },
+    {
+      "feature": "Bills and payments seed routine",
+      "line": 30
+    }
+  ]
+}

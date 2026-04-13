@@ -1,3 +1,5 @@
+// Policy: Do not modify directly. Explain reason before edits. Last confirm reason: supplier contract template upload endpoint returned 404; added GET/POST /api/supplier-contract-template and verified 200
+
 const express = require('express')
 const cors = require('cors')
 const path = require('path')
@@ -7,6 +9,8 @@ const multer = require('multer')
 const os = require('os')
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
+const PizZip = require('pizzip')
+const Docxtemplater = require('docxtemplater')
 
 const app = express()
 // 开发便捷：默认启用 ALLOW_DEV_RESET，允许批量重置非管理员密码（仅本地环境使用）
@@ -54,6 +58,37 @@ function all(sql, params = []) {
     })
   })
 }
+
+function loadLegacyTemplateMarkerMap() {
+  const files = [
+    path.join(__dirname, '..', 'template_placeholder_mapping_v2.json'),
+    path.join(__dirname, '..', 'template_placeholder_mapping.json'),
+    path.join(__dirname, '..', 'tmp_template_mapping_result.json'),
+  ]
+  const markerMap = new Map()
+  for (const f of files) {
+    try {
+      if (!fs.existsSync(f)) continue
+      const raw = fs.readFileSync(f, 'utf8')
+      const parsed = JSON.parse(raw)
+      const arr = Array.isArray(parsed?.replaced) ? parsed.replaced : []
+      for (const item of arr) {
+        const from = String(item?.from || '')
+        const to = String(item?.to || '')
+        const m = to.match(/^\{\{\s*([a-zA-Z0-9_]+)\s*\}\}$/)
+        if (!m) continue
+        if (!from) continue
+        if (from.includes('{{') || from.includes('}}')) continue
+        markerMap.set(from, m[1])
+      }
+    } catch {
+      // ignore bad mapping file
+    }
+  }
+  return markerMap
+}
+
+const LEGACY_TEMPLATE_MARKERS = loadLegacyTemplateMarkerMap()
 
 function parseJsonArraySafe(v) {
   let x = v
@@ -164,6 +199,30 @@ async function ensureSchema() {
     FOREIGN KEY(projectId) REFERENCES projects(id),
     FOREIGN KEY(supplierId) REFERENCES suppliers(id)
   )`)
+  // Backfill supplier_contracts columns for legacy databases.
+  const supplierContractColumns = [
+    ['supplierAddress', 'TEXT'],
+    ['contactPerson', 'TEXT'],
+    ['contactPhone', 'TEXT'],
+    ['deliveryLocation', 'TEXT'],
+    ['buyerName', 'TEXT'],
+    ['buyerAddress', 'TEXT'],
+    ['buyerBankName', 'TEXT'],
+    ['buyerBankAccount', 'TEXT'],
+    ['amountExclTax', 'REAL DEFAULT 0'],
+    ['taxAmount', 'REAL DEFAULT 0'],
+    ['contractAmountUpper', 'TEXT'],
+    ['dateText', 'TEXT'],
+    ['signDate', 'TEXT'],
+    ['receiver', 'TEXT'],
+  ]
+  for (const [column, typeDef] of supplierContractColumns) {
+    try {
+      await run(`ALTER TABLE supplier_contracts ADD COLUMN ${column} ${typeDef}`)
+    } catch {
+      // column already exists
+    }
+  }
   
   // 材料清单表
   await run(`CREATE TABLE IF NOT EXISTS materials (
@@ -1521,6 +1580,88 @@ const contractStorage = multer.diskStorage({
 })
 const contractUpload = multer({ storage: contractStorage, limits: { fileSize: 50 * 1024 * 1024 } })
 
+const contractTemplateDir = path.join(UPLOAD_DIR, 'contract-templates')
+const contractTemplateMetaPath = path.join(contractTemplateDir, 'current.json')
+const legacyContractTemplateFileName = 'current.docx'
+const legacyContractTemplateAbsPath = path.join(contractTemplateDir, legacyContractTemplateFileName)
+function getCurrentContractTemplateMeta() {
+  try {
+    if (fs.existsSync(contractTemplateMetaPath)) {
+      const meta = JSON.parse(fs.readFileSync(contractTemplateMetaPath, 'utf8'))
+      const absPath = String(meta?.absPath || '')
+      if (absPath && fs.existsSync(absPath)) {
+        return {
+          fileName: String(meta.fileName || path.basename(absPath)),
+          fileUrl: String(meta.fileUrl || `/uploads/contract-templates/${path.basename(absPath)}`),
+          absPath,
+        }
+      }
+    }
+  } catch {
+    // ignore metadata parse errors
+  }
+  if (fs.existsSync(legacyContractTemplateAbsPath)) {
+    return {
+      fileName: legacyContractTemplateFileName,
+      fileUrl: `/uploads/contract-templates/${legacyContractTemplateFileName}`,
+      absPath: legacyContractTemplateAbsPath,
+    }
+  }
+  return null
+}
+const contractTemplateUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      fs.mkdirSync(contractTemplateDir, { recursive: true })
+      cb(null, contractTemplateDir)
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '') || '.docx'
+      cb(null, `tpl-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`)
+    },
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+})
+
+app.get('/api/supplier-contract-template', auth, async (req, res) => {
+  try {
+    const meta = getCurrentContractTemplateMeta()
+    if (!meta) return res.json(null)
+    const st = fs.statSync(meta.absPath)
+    res.json({
+      fileName: meta.fileName,
+      fileUrl: meta.fileUrl,
+      updatedAt: new Date(st.mtimeMs).toISOString(),
+      size: st.size,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.post('/api/supplier-contract-template', auth, contractTemplateUpload.single('templateFile'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'template file required' })
+    const uploadedAbsPath = path.join(contractTemplateDir, req.file.filename)
+    const uploadedUrl = `/uploads/contract-templates/${req.file.filename}`
+    fs.writeFileSync(contractTemplateMetaPath, JSON.stringify({
+      fileName: req.file.originalname || req.file.filename,
+      fileUrl: uploadedUrl,
+      absPath: uploadedAbsPath,
+      updatedAt: new Date().toISOString(),
+    }, null, 2))
+    const st = fs.statSync(uploadedAbsPath)
+    res.json({
+      fileName: req.file.originalname || req.file.filename,
+      fileUrl: uploadedUrl,
+      updatedAt: new Date(st.mtimeMs).toISOString(),
+      size: st.size,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // 获取合同列表
 app.get('/api/supplier-contracts', auth, async (req, res) => {
   try {
@@ -1559,7 +1700,29 @@ app.post('/api/supplier-contracts', auth, contractUpload.single('contractFile'),
     const contractNo = await generateContractCode()
     const now = new Date().toISOString()
     
-    const { projectId, contractName, supplierId, supplierName, contractAmount, paymentMethod, materialList } = req.body
+    const {
+      projectId,
+      contractName,
+      supplierId,
+      supplierName,
+      supplierAddress,
+      contactPerson,
+      contactPhone,
+      contractAmount,
+      paymentMethod,
+      materialList,
+      deliveryLocation,
+      buyerName,
+      buyerAddress,
+      buyerBankName,
+      buyerBankAccount,
+      amountExclTax,
+      taxAmount,
+      contractAmountUpper,
+      dateText,
+      signDate,
+      receiver,
+    } = req.body
     
     let contractFileUrl = null
     if (req.file) {
@@ -1572,8 +1735,44 @@ app.post('/api/supplier-contracts', auth, contractUpload.single('contractFile'),
       materials = typeof materialList === 'string' ? JSON.parse(materialList) : (materialList || [])
     } catch { materials = [] }
     
-    await run(`INSERT INTO supplier_contracts (id, contractNo, contractName, projectId, supplierId, supplierName, contractAmount, paymentMethod, materialList, contractFileUrl, status, approvalStatus, isArchived, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'pending', 0, ?, ?, ?)`,
-      [id, contractNo, contractName, projectId, supplierId, supplierName, Number(contractAmount) || 0, paymentMethod, JSON.stringify(materials), contractFileUrl, req.user?.id, now, now])
+    await run(
+      `INSERT INTO supplier_contracts (
+        id, contractNo, contractName, projectId, supplierId, supplierName, supplierAddress, contactPerson, contactPhone,
+        contractAmount, paymentMethod,
+        materialList, contractFileUrl, deliveryLocation, buyerName, buyerAddress, buyerBankName, buyerBankAccount,
+        amountExclTax, taxAmount, contractAmountUpper, dateText, signDate, receiver,
+        status, approvalStatus, isArchived, createdBy, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'pending', 0, ?, ?, ?)`,
+      [
+        id,
+        contractNo,
+        contractName,
+        projectId,
+        supplierId,
+        supplierName,
+        supplierAddress || null,
+        contactPerson || null,
+        contactPhone || null,
+        Number(contractAmount) || 0,
+        paymentMethod,
+        JSON.stringify(materials),
+        contractFileUrl,
+        deliveryLocation || null,
+        buyerName || null,
+        buyerAddress || null,
+        buyerBankName || null,
+        buyerBankAccount || null,
+        Number(amountExclTax) || 0,
+        Number(taxAmount) || 0,
+        contractAmountUpper || null,
+        dateText || null,
+        signDate || null,
+        receiver || null,
+        req.user?.id,
+        now,
+        now,
+      ]
+    )
     
     // 同步材料到项目材料清单
     if (materials.length > 0 && projectId) {
@@ -1599,7 +1798,28 @@ app.put('/api/supplier-contracts/:id', auth, contractUpload.single('contractFile
     const existing = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [contractId]))[0]
     if (!existing) return res.status(404).json({ error: '合同不存在' })
     
-    const { contractName, supplierId, supplierName, contractAmount, paymentMethod, materialList } = req.body
+    const {
+      contractName,
+      supplierId,
+      supplierName,
+      supplierAddress,
+      contactPerson,
+      contactPhone,
+      contractAmount,
+      paymentMethod,
+      materialList,
+      deliveryLocation,
+      buyerName,
+      buyerAddress,
+      buyerBankName,
+      buyerBankAccount,
+      amountExclTax,
+      taxAmount,
+      contractAmountUpper,
+      dateText,
+      signDate,
+      receiver,
+    } = req.body
     const now = new Date().toISOString()
     
     let contractFileUrl = existing.contractFileUrl
@@ -1612,8 +1832,40 @@ app.put('/api/supplier-contracts/:id', auth, contractUpload.single('contractFile
       materials = typeof materialList === 'string' ? JSON.parse(materialList) : (materialList || [])
     } catch { materials = [] }
     
-    await run(`UPDATE supplier_contracts SET contractName = ?, supplierId = ?, supplierName = ?, contractAmount = ?, paymentMethod = ?, materialList = ?, contractFileUrl = ?, updatedAt = ? WHERE id = ?`,
-      [contractName, supplierId, supplierName, Number(contractAmount) || 0, paymentMethod, JSON.stringify(materials), contractFileUrl, now, contractId])
+    await run(
+      `UPDATE supplier_contracts
+       SET contractName = ?, supplierId = ?, supplierName = ?, supplierAddress = ?, contactPerson = ?, contactPhone = ?,
+           contractAmount = ?, paymentMethod = ?,
+           materialList = ?, contractFileUrl = ?, deliveryLocation = ?, buyerName = ?, buyerAddress = ?,
+           buyerBankName = ?, buyerBankAccount = ?, amountExclTax = ?, taxAmount = ?,
+           contractAmountUpper = ?, dateText = ?, signDate = ?, receiver = ?, updatedAt = ?
+       WHERE id = ?`,
+      [
+        contractName,
+        supplierId,
+        supplierName,
+        supplierAddress || null,
+        contactPerson || null,
+        contactPhone || null,
+        Number(contractAmount) || 0,
+        paymentMethod,
+        JSON.stringify(materials),
+        contractFileUrl,
+        deliveryLocation || null,
+        buyerName || null,
+        buyerAddress || null,
+        buyerBankName || null,
+        buyerBankAccount || null,
+        Number(amountExclTax) || 0,
+        Number(taxAmount) || 0,
+        contractAmountUpper || null,
+        dateText || null,
+        signDate || null,
+        receiver || null,
+        now,
+        contractId,
+      ]
+    )
     
     const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ?`, [contractId]))[0]
     contract.materialList = materials
@@ -1624,6 +1876,131 @@ app.put('/api/supplier-contracts/:id', auth, contractUpload.single('contractFile
 })
 
 // 删除合同
+app.get('/api/supplier-contracts/:id/export-word', auth, async (req, res) => {
+  try {
+    const contractId = req.params.id
+    const contract = (await all(`SELECT * FROM supplier_contracts WHERE id = ? LIMIT 1`, [contractId]))[0]
+    if (!contract) return res.status(404).json({ error: 'contract not found' })
+
+    const safeName = String(contract.contractName || 'contract').replace(/[\\/:*?"<>|]+/g, '_')
+    const downloadName = `${safeName}.docx`
+
+    // Render by template: prefer uploaded current template, then local fallback templates.
+    const currentTemplateMeta = getCurrentContractTemplateMeta()
+    const templateCandidates = [
+      currentTemplateMeta?.absPath,
+      path.join(__dirname, '..', 'contract_template_system_ready_v2.docx'),
+      path.join(__dirname, '..', 'contract_template_system_ready.docx'),
+    ]
+    const templatePath = templateCandidates.find((p) => fs.existsSync(p))
+    if (!templatePath) {
+      return res.status(404).json({ error: 'template missing' })
+    }
+
+    const signDate = String(contract.signDate || '')
+    const dateText = String(contract.dateText || '')
+    const year = signDate.length >= 4 ? signDate.slice(0, 4) : ''
+    const month = signDate.length >= 7 ? signDate.slice(5, 7) : ''
+    const day = signDate.length >= 10 ? signDate.slice(8, 10) : ''
+    const materialRows = parseJsonArraySafe(contract.materialList || '[]')
+    const materialListText = materialRows
+      .map((m, i) => `${i + 1}. ${m?.name || ''} ${m?.specification || ''} ${m?.unit || ''} ${m?.quantity || ''}`.trim())
+      .join('\n')
+    const projectRow = contract.projectId
+      ? (await all(`SELECT name FROM projects WHERE id = ? LIMIT 1`, [contract.projectId]))[0]
+      : null
+
+    const renderData = {
+      contract_no: contract.contractNo || '',
+      contract_name: contract.contractName || '',
+      supplier_name: contract.supplierName || '',
+      supplier_address: contract.supplierAddress || contract.buyerAddress || '',
+      contact_person: contract.contactPerson || '',
+      contact_phone: contract.contactPhone || '',
+      contact_with_phone: [contract.contactPerson || '', contract.contactPhone || ''].filter(Boolean).join(' '),
+      buyer_name: contract.buyerName || '',
+      buyer_address: contract.buyerAddress || '',
+      buyer_bank_name: contract.buyerBankName || '',
+      buyer_bank_account: contract.buyerBankAccount || '',
+      delivery_location: contract.deliveryLocation || '',
+      receiver: contract.receiver || '',
+      payment_method: contract.paymentMethod || '',
+      contract_amount: Number(contract.contractAmount || 0).toFixed(2),
+      amount_excl_tax: Number(contract.amountExclTax || 0).toFixed(2),
+      tax_amount: Number(contract.taxAmount || 0).toFixed(2),
+      contract_amount_upper: contract.contractAmountUpper || '',
+      sign_date: signDate,
+      date_text: dateText || (year && month && day ? `${year}年${month}月${day}日` : ''),
+      sign_year: year,
+      sign_month: month,
+      sign_day: day,
+      material_list: materialListText,
+      project_name: projectRow?.name || '',
+    }
+
+    const templateBinary = fs.readFileSync(templatePath, 'binary')
+    const escapeRegExp = (v) => String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const applyXmlReplacement = (xml, key, value) => {
+      const exact = new RegExp(`\\{\\{\\s*${escapeRegExp(key)}\\s*\\}\\}`, 'g')
+      return xml.replace(exact, value)
+    }
+
+    let outputBuffer = null
+    try {
+      const zip = new PizZip(templateBinary)
+      if (LEGACY_TEMPLATE_MARKERS.size > 0) {
+        const xmlParts = Object.keys(zip.files).filter((name) => /^word\/(document|header\d+|footer\d+)\.xml$/.test(name))
+        for (const partName of xmlParts) {
+          const part = zip.file(partName)
+          if (!part) continue
+          let xml = part.asText()
+          for (const [fromText, renderKey] of LEGACY_TEMPLATE_MARKERS.entries()) {
+            const val = String(renderData?.[renderKey] ?? '')
+            if (!val) continue
+            if (!xml.includes(fromText)) continue
+            xml = xml.split(fromText).join(val)
+          }
+          zip.file(partName, xml)
+        }
+      }
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter: () => '',
+      })
+      doc.render(renderData)
+      outputBuffer = doc.getZip().generate({ type: 'nodebuffer' })
+    } catch {
+      // Fallback for malformed templates: plain placeholder replacement in xml parts.
+      const zip = new PizZip(templateBinary)
+      const xmlParts = Object.keys(zip.files).filter((name) => /^word\/(document|header\d+|footer\d+)\.xml$/.test(name))
+      const replacements = Object.entries(renderData).map(([k, v]) => [k, String(v ?? '')])
+      for (const partName of xmlParts) {
+        const part = zip.file(partName)
+        if (!part) continue
+        let xml = part.asText()
+        for (const [fromText, renderKey] of LEGACY_TEMPLATE_MARKERS.entries()) {
+          const val = String(renderData?.[renderKey] ?? '')
+          if (!val) continue
+          if (!xml.includes(fromText)) continue
+          xml = xml.split(fromText).join(val)
+        }
+        for (const [key, value] of replacements) {
+          xml = applyXmlReplacement(xml, key, value)
+        }
+        zip.file(partName, xml)
+      }
+      outputBuffer = zip.generate({ type: 'nodebuffer' })
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    res.setHeader('Content-Disposition', `attachment; filename=\"${encodeURIComponent(downloadName)}\"`)
+    return res.end(outputBuffer)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 app.delete('/api/supplier-contracts/:id', auth, async (req, res) => {
   try {
     const contractId = req.params.id

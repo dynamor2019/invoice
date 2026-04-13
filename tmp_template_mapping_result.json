@@ -1,0 +1,42 @@
+{
+  "source": "C:\\handv\\华能天津采购合同模版new.docx",
+  "output": "C:\\handv\\contract_template_system_ready.docx",
+  "count": 5,
+  "replaced": [
+    {
+      "file": "word/document.xml",
+      "p": 1,
+      "r": 1,
+      "from": "HNCG--2025-11-07",
+      "to": "{{contract_no}}"
+    },
+    {
+      "file": "word/document.xml",
+      "p": 2,
+      "r": 1,
+      "from": "HNCG--2025-11-07",
+      "to": "{{contract_no}}"
+    },
+    {
+      "file": "word/document.xml",
+      "p": 30,
+      "r": 2,
+      "from": "2025",
+      "to": "{{date_text}}"
+    },
+    {
+      "file": "word/document.xml",
+      "p": 30,
+      "r": 4,
+      "from": "11",
+      "to": ""
+    },
+    {
+      "file": "word/document.xml",
+      "p": 30,
+      "r": 6,
+      "from": " 7",
+      "to": ""
+    }
+  ]
+}

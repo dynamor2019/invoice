@@ -1,0 +1,2118 @@
+// Policy: Do not modify directly. Explain reason before edits. Last confirm reason: supplier dropdown required and material save flow garble fixes
+
+// Policy: Do not modify directly. Explain reason before edits. Last confirm reason: make project-create modal content scrollable and keep action buttons above bottom navigation
+
+import { useEffect, useMemo, useState } from 'react'
+import { getCurrentUser } from '../store/users'
+import { 
+  listProjects,
+  createProject,
+  updateProject,
+  deleteProject,
+  listMaterials,
+  addMaterial,
+  updateMaterial,
+  deleteMaterial,
+  searchMaterials,
+  listSuppliers,
+  listSupplierContracts,
+  createSupplierContract,
+  updateSupplierContract,
+  deleteSupplierContract,
+  getSupplierContractTemplate,
+  uploadSupplierContractTemplate,
+  exportSupplierContractWord
+} from '../store/projects'
+import { 
+  FolderOpen,
+  Add,
+  Edit,
+  Delete,
+  Business,
+  AttachMoney,
+  CalendarToday,
+  Person,
+  Category,
+  Assignment
+} from '@mui/icons-material'
+
+export default function Projects() {
+  const user = getCurrentUser()
+  const [projects, setProjects] = useState([])
+  const [materials, setMaterials] = useState([])
+  const [contracts, setContracts] = useState([])
+  const [suppliers, setSuppliers] = useState([])
+  const [activeTab, setActiveTab] = useState('projects')
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editingProject, setEditingProject] = useState(null)
+  const [showMaterialForm, setShowMaterialForm] = useState(false)
+  const [editingMaterial, setEditingMaterial] = useState(null)
+  const [showContractForm, setShowContractForm] = useState(false)
+  const [editingContract, setEditingContract] = useState(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    contractNo: '',
+    client: '',
+    projectOverview: '',
+    totalBudget: '',
+    settlementAmount: '',
+    paymentMethod: '',
+    invoiceInfo: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    projectManager: '',
+    status: 'draft',
+    contractFile: null,
+    contractFileName: '',
+    otherFiles: [],
+    otherFileNames: []
+  })
+  const [materialFormData, setMaterialFormData] = useState({
+    name: '',
+    specification: '',
+    unit: '',
+    quantity: '',
+    unitPrice: '',
+    totalPrice: '',
+    supplier: '',
+    type: '\u6750\u6599\u6e05\u5355',
+    remarks: ''
+  })
+  const [contractFormData, setContractFormData] = useState({
+    contractNo: '',
+    contractName: '',
+    supplierName: '',
+    contractAmount: '',
+    paymentMethod: '',
+    amountExclTax: '',
+    taxAmount: '',
+    contractAmountUpper: '',
+    materialList: '',
+    dateText: '',
+    signDate: '',
+    startDate: '',
+    endDate: '',
+    warrantyPeriod: '',
+    deliveryLocation: '',
+    receiver: '',
+    qualityStandard: '',
+    projectId: '',
+    contactPerson: '',
+    contactPhone: '',
+    supplierAddress: '',
+    buyerName: '',
+    buyerAddress: '',
+    buyerBankName: '',
+    buyerBankAccount: '',
+    taxNumber: '',
+    bankAccount: '',
+    status: 'draft',
+    contractFile: null,
+    contractFileName: ''
+  })
+  
+  // 椤圭洰娓呭崟鏉＄洰绠＄悊
+  const [projectItems, setProjectItems] = useState([])
+  const [newProjectItem, setNewProjectItem] = useState({
+    name: '',
+    specification: '',
+    unit: '',
+    quantity: '',
+    unitPrice: '',
+    totalPrice: '',
+    remarks: '',
+    category: '\u6750\u6599\u6e05\u5355'
+  })
+  
+  // 鏉愭枡鎼滅储鑱旀兂鍔熻兘
+  const [materialSuggestions, setMaterialSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchTimeout, setSearchTimeout] = useState(null)
+  const [showMaterialFormSuggestions, setShowMaterialFormSuggestions] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [contractTemplateMeta, setContractTemplateMeta] = useState(null)
+  const [contractTemplateUploading, setContractTemplateUploading] = useState(false)
+  const [showSupplierNameSuggestions, setShowSupplierNameSuggestions] = useState(false)
+
+  const isPM = user?.role === 'project_manager'
+  const isAdmin = user?.role === 'admin'
+  const isChairman = user?.role === 'chairman'
+  const isViceChairman = user?.role === 'vice_chairman'
+  const isGM = user?.role === 'gm'
+  const isProcurementManager = user?.role === 'procurement_manager'
+  const isCostManager = user?.role === 'cost_manager'
+  const canManage = isAdmin // 鍙湁绠＄悊鍛樺彲浠ョ鐞嗛」鐩紝椤圭洰缁忕悊鍙兘鏌ョ湅
+  const canManageProjects = isAdmin || isPM // 鍙湁椤圭洰缁忕悊鍜岀鐞嗗憳鍙互鏂板缓椤圭洰
+  const canViewDashboard = isChairman || isViceChairman || isGM || isAdmin
+  const filteredProjects = useMemo(() => {
+    const keyword = projectSearch.trim().toLowerCase()
+    if (!keyword) return projects
+    return projects.filter((project) => {
+      const name = String(project?.name || '').toLowerCase()
+      const code = String(project?.code || '').toLowerCase()
+      return name.includes(keyword) || code.includes(keyword)
+    })
+  }, [projects, projectSearch])
+
+  const MATERIAL_CATEGORY_MATERIAL = '\u6750\u6599\u6e05\u5355'
+  const MATERIAL_CATEGORY_CONSTRUCTION = '\u65bd\u5de5\u6e05\u5355'
+  const MATERIAL_CATEGORY_COMMISSIONING = '\u8c03\u8bd5\u6e05\u5355'
+  const MATERIAL_CATEGORIES = [MATERIAL_CATEGORY_MATERIAL, MATERIAL_CATEGORY_CONSTRUCTION, MATERIAL_CATEGORY_COMMISSIONING]
+  const normalizeMaterialType = (rawType) => {
+    const value = String(rawType || '').trim()
+    if (!value) return MATERIAL_CATEGORY_MATERIAL
+    if (MATERIAL_CATEGORIES.includes(value)) return value
+    if (value === '\u4e3b\u6750\u6599') return MATERIAL_CATEGORY_MATERIAL
+    if (value === '\u8f85\u6750\u6599') return MATERIAL_CATEGORY_CONSTRUCTION
+    if (value === '\u8f85\u52a9\u6750\u6599') return MATERIAL_CATEGORY_COMMISSIONING
+    if (value.includes('\u8c03') || value.includes('\u8bd5')) return MATERIAL_CATEGORY_COMMISSIONING
+    if (value.includes('\u65bd') || value.includes('\u5de5')) return MATERIAL_CATEGORY_CONSTRUCTION
+    if (value.includes('\u8f85') && value.includes('\u52a9')) return MATERIAL_CATEGORY_COMMISSIONING
+    if (value.includes('\u8f85')) return MATERIAL_CATEGORY_CONSTRUCTION
+    return MATERIAL_CATEGORY_MATERIAL
+  }
+
+  const filteredSuppliers = useMemo(() => {
+    const keyword = String(contractFormData.supplierName || '').trim().toLowerCase()
+    if (!keyword) return suppliers.slice(0, 8)
+    return suppliers
+      .filter((s) => String(s?.name || '').toLowerCase().includes(keyword))
+      .slice(0, 8)
+  }, [suppliers, contractFormData.supplierName])
+  const materialSupplierOptions = useMemo(() => {
+    return Array.from(new Set(
+      (Array.isArray(suppliers) ? suppliers : [])
+        .map((s) => String(s?.name || '').trim())
+        .filter(Boolean)
+    ))
+  }, [suppliers])
+
+  useEffect(() => {
+    loadProjects()
+    if (isProcurementManager || isCostManager || isAdmin) {
+      loadSuppliers()
+      loadContracts()
+      loadContractTemplate()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedProject && (isProcurementManager || isCostManager || isAdmin)) {
+      loadMaterials(selectedProject.id)
+    }
+  }, [selectedProject])
+
+  useEffect(() => {
+    if (isProcurementManager || isCostManager || isAdmin) {
+      loadContracts(selectedProject?.id)
+    }
+  }, [selectedProject?.id, isProcurementManager, isCostManager, isAdmin])
+
+  const loadProjects = async () => {
+    try {
+      const data = await listProjects()
+      console.log('鍔犺浇鍒扮殑椤圭洰:', data)
+      setProjects(data)
+      if (data.length > 0 && !selectedProject && (isProcurementManager || isCostManager || isAdmin)) {
+        console.log('鑷姩閫夋嫨绗竴涓」鐩?', data[0])
+        setSelectedProject(data[0])
+      }
+    } catch (e) {
+      console.error('鍔犺浇椤圭洰澶辫触:', e)
+      alert(`鍔犺浇椤圭洰澶辫触: ${e.message}`)
+    }
+  }
+
+  const loadMaterials = async (projectId) => {
+    try {
+      console.log('姝ｅ湪鍔犺浇椤圭洰鏉愭枡:', projectId)
+      const data = await listMaterials(projectId)
+      console.log('鍔犺浇鍒扮殑鏉愭枡鏁伴噺:', data.length)
+      setMaterials(data)
+    } catch (e) {
+      console.error('鍔犺浇鏉愭枡澶辫触:', e)
+      alert(`鍔犺浇鏉愭枡澶辫触: ${e.message}`)
+    }
+  }
+
+  const loadContracts = async (projectId = selectedProject?.id) => {
+    try {
+      const data = await listSupplierContracts(projectId ? { projectId } : {})
+      setContracts(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('鍔犺浇閲囪喘鍚堝悓澶辫触:', e)
+      setContracts([])
+    }
+  }
+
+  const loadSuppliers = async () => {
+    try {
+      const data = await listSuppliers()
+      setSuppliers(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('load suppliers failed:', e)
+      setSuppliers([])
+    }
+  }
+
+  const applySupplierProfile = (supplier) => {
+    if (!supplier) return
+    const contact = String(supplier.contact || '').trim()
+    const phone = String(supplier.phone || '').trim()
+    const mergedContact = [contact, phone].filter(Boolean).join(' ')
+    setContractFormData((prev) => ({
+      ...prev,
+      supplierName: supplier.name || prev.supplierName,
+      supplierAddress: supplier.address || prev.supplierAddress,
+      contactPerson: mergedContact || prev.contactPerson,
+      contactPhone: phone || prev.contactPhone,
+      buyerName: supplier.name || prev.buyerName,
+      buyerAddress: supplier.address || prev.buyerAddress,
+      buyerBankName: supplier.bankName || prev.buyerBankName,
+      buyerBankAccount: supplier.bankAccount || prev.buyerBankAccount,
+      bankAccount: supplier.bankAccount || prev.bankAccount
+    }))
+    setShowSupplierNameSuggestions(false)
+  }
+
+  const handleSupplierNameInput = (value) => {
+    setContractFormData((prev) => ({ ...prev, supplierName: value }))
+    if (!value.trim()) {
+      setShowSupplierNameSuggestions(false)
+      return
+    }
+    setShowSupplierNameSuggestions(true)
+    const exact = suppliers.find((s) => String(s?.name || '') === value.trim())
+    if (exact) applySupplierProfile(exact)
+  }
+
+  const loadContractTemplate = async () => {
+    try {
+      const data = await getSupplierContractTemplate()
+      setContractTemplateMeta(data || null)
+    } catch (e) {
+      console.error('鍔犺浇鍚堝悓妯℃澘澶辫触:', e)
+      setContractTemplateMeta(null)
+    }
+  }
+
+  const getReadableError = (error, fallback) => {
+    const raw = String(error?.message || '').trim()
+    if (!raw) return fallback
+    // Most mojibake from wrong UTF decode appears as dense Latin-1 accented chars.
+    const looksMojibake = /[\u00C0-\u024F\uFFFD]/.test(raw)
+    return looksMojibake ? fallback : raw
+  }
+
+  const handleContractTemplateUpload = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      setContractTemplateUploading(true)
+      const meta = await uploadSupplierContractTemplate(file)
+      setContractTemplateMeta(meta || null)
+      alert('\u5408\u540c\u6a21\u677f\u4e0a\u4f20\u6210\u529f')
+    } catch (e) {
+      alert(e.message || '\u5408\u540c\u6a21\u677f\u4e0a\u4f20\u5931\u8d25')
+    } finally {
+      setContractTemplateUploading(false)
+    }
+  }
+
+  const handleContractWordExport = async (contract) => {
+    try {
+      const blob = await exportSupplierContractWord(contract.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${contract.contractNo || contract.contractName || 'supplier-contract'}.docx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert(getReadableError(e, '\u5bfc\u51faWord\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5'))
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    if (!formData.name.trim() || !formData.totalBudget) {
+      alert('璇峰～鍐欓」鐩悕绉板拰棰勭畻')
+      return
+    }
+
+    try {
+      if (editingProject) {
+        await updateProject(editingProject.id, formData)
+        alert('椤圭洰鏇存柊鎴愬姛')
+      } else {
+        await createProject(formData)
+        alert('椤圭洰鍒涘缓鎴愬姛')
+      }
+      
+      await loadProjects()
+      resetForm()
+    } catch (e) {
+      alert(e.message || '\\u5408\\u540c\\u6a21\\u677f\\u4e0a\\u4f20\\u5931\\u8d25')
+    }
+  }
+
+  const handleEdit = (project) => {
+    setEditingProject(project)
+    setFormData({
+      name: project.name || '',
+      code: project.code || '',
+      contractNo: project.contractNo || '',
+      client: project.client || '',
+      projectOverview: project.projectOverview || '',
+      totalBudget: project.totalBudget || '',
+      settlementAmount: project.settlementAmount || '',
+      paymentMethod: project.paymentMethod || '',
+      invoiceInfo: project.invoiceInfo || '',
+      description: project.description || '',
+      startDate: project.startDate || '',
+      endDate: project.endDate || '',
+      projectManager: project.projectManager || '',
+      status: project.status || 'draft'
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (project) => {
+    if (!confirm(`纭畾瑕佸垹闄ら」鐩?${project.name}"鍚楋紵`)) return
+    
+    try {
+      await deleteProject(project.id)
+      await loadProjects()
+      alert('\\u5408\\u540c\\u6a21\\u677f\\u4e0a\\u4f20\\u6210\\u529f')
+    } catch (e) {
+      alert(e.message || '\\u5408\\u540c\\u6a21\\u677f\\u4e0a\\u4f20\\u5931\\u8d25')
+    }
+  }
+
+  const resetForm = () => {
+    setShowForm(false)
+    setEditingProject(null)
+    setFormData({
+      name: '',
+      code: '',
+      contractNo: '',
+      client: '',
+      projectOverview: '',
+      totalBudget: '',
+      settlementAmount: '',
+      paymentMethod: '',
+      invoiceInfo: '',
+      description: '',
+      startDate: '',
+      endDate: '',
+      projectManager: '',
+      status: 'draft',
+      contractFile: null,
+      contractFileName: '',
+      otherFiles: [],
+      otherFileNames: []
+    })
+  }
+
+  // 鏉愭枡绠＄悊鍑芥暟
+  const handleMaterialSubmit = async (e) => {
+    e.preventDefault()
+    if (!materialFormData.name.trim()) {
+      alert('\u8bf7\u8f93\u5165\u7269\u6599\u540d\u79f0')
+      return
+    }
+
+    if (!String(materialFormData.supplier || '').trim()) {
+      alert('\u8bf7\u9009\u62e9\u4f9b\u5e94\u5546')
+      return
+    }
+
+    if (!selectedProject) {
+      alert('\u8bf7\u5148\u9009\u62e9\u9879\u76ee')
+      return
+    }
+
+    try {
+      const materialData = {
+        ...materialFormData,
+        type: normalizeMaterialType(materialFormData.type),
+        quantity: Number(materialFormData.quantity) || 0,
+        unitPrice: Number(materialFormData.unitPrice) || 0,
+        totalPrice: Number(materialFormData.totalPrice) || 0
+      }
+
+      if (editingMaterial) {
+        await updateMaterial(selectedProject.id, editingMaterial.id, materialData)
+        alert('\u7269\u6599\u66f4\u65b0\u6210\u529f')
+      } else {
+        await addMaterial(selectedProject.id, materialData)
+        alert('\u7269\u6599\u65b0\u589e\u6210\u529f')
+      }
+      
+      await loadMaterials(selectedProject.id)
+      resetMaterialForm()
+    } catch (e) {
+      alert(`\u7269\u6599\u4fdd\u5b58\u5931\u8d25: ${e.message}`)
+    }
+  }
+
+  const handleMaterialEdit = (material) => {
+    setEditingMaterial(material)
+    setMaterialFormData({
+      name: material.name || '',
+      specification: material.specification || '',
+      unit: material.unit || '',
+      quantity: material.quantity || '',
+      unitPrice: material.unitPrice || '',
+      totalPrice: material.totalPrice || '',
+      supplier: material.supplier || '',
+      type: normalizeMaterialType(material.type),
+      remarks: material.remarks || ''
+    })
+    setShowMaterialForm(true)
+  }
+
+  const handleMaterialDelete = async (material) => {
+    if (!confirm(`纭畾瑕佸垹闄ゆ潗鏂?${material.name}"鍚楋紵`)) return
+    
+    if (!selectedProject) {
+      alert('请先选择一个项目')
+      return
+    }
+
+    try {
+      await deleteMaterial(selectedProject.id, material.id)
+      alert('鏉愭枡鍒犻櫎鎴愬姛')
+      // 閲嶆柊鍔犺浇鏉愭枡鍒楄〃
+      await loadMaterials(selectedProject.id)
+    } catch (e) {
+      alert(`鍒犻櫎澶辫触: ${e.message}`)
+    }
+  }
+
+  const resetMaterialForm = () => {
+    setShowMaterialForm(false)
+    setEditingMaterial(null)
+    setShowMaterialFormSuggestions(false)
+    setMaterialSuggestions([])
+    setMaterialFormData({
+      name: '',
+      specification: '',
+      unit: '',
+      quantity: '',
+      unitPrice: '',
+      totalPrice: '',
+      supplier: '',
+      type: MATERIAL_CATEGORY_MATERIAL,
+      remarks: ''
+    })
+  }
+
+  // 鍚堝悓绠＄悊鍑芥暟
+  const handleContractSubmit = async (e) => {
+    e.preventDefault()
+    if (!contractFormData.contractName.trim() || !contractFormData.supplierName.trim()) {
+      alert('\u8bf7\u586b\u5199\u5408\u540c\u540d\u79f0\u548c\u4f9b\u5e94\u5546\u540d\u79f0')
+      return
+    }
+
+    const resolvedProjectId = selectedProject?.id || contractFormData.projectId
+    if (!resolvedProjectId) {
+      alert('\u8bf7\u5148\u9009\u62e9\u5173\u8054\u9879\u76ee')
+      return
+    }
+
+    try {
+      const fd = new FormData()
+      const hasSplitAmount = String(contractFormData.amountExclTax).trim() !== '' || String(contractFormData.taxAmount).trim() !== ''
+      const resolvedAmount = hasSplitAmount
+        ? Number(contractFormData.amountExclTax || 0) + Number(contractFormData.taxAmount || 0)
+        : Number(contractFormData.contractAmount || 0)
+      fd.append('projectId', String(resolvedProjectId))
+      fd.append('contractName', String(contractFormData.contractName || ''))
+      fd.append('supplierName', String(contractFormData.supplierName || ''))
+      fd.append('contractAmount', String(resolvedAmount))
+      fd.append('paymentMethod', String(contractFormData.paymentMethod || ''))
+      fd.append('amountExclTax', String(Number(contractFormData.amountExclTax) || 0))
+      fd.append('taxAmount', String(Number(contractFormData.taxAmount) || 0))
+      fd.append('contractAmountUpper', String(contractFormData.contractAmountUpper || ''))
+      fd.append('dateText', String(contractFormData.dateText || ''))
+      fd.append('signDate', String(contractFormData.signDate || ''))
+      fd.append('deliveryLocation', String(contractFormData.deliveryLocation || ''))
+      fd.append('receiver', String(contractFormData.receiver || ''))
+      fd.append('buyerName', String(contractFormData.supplierName || contractFormData.contactPerson || ''))
+      fd.append('buyerAddress', String(contractFormData.supplierAddress || ''))
+      fd.append('buyerBankName', String(contractFormData.buyerBankName || ''))
+      fd.append('buyerBankAccount', String(contractFormData.buyerBankAccount || contractFormData.bankAccount || ''))
+      const normalizedProjectItems = Array.isArray(projectItems)
+        ? projectItems.map((item) => ({ ...item, category: normalizeMaterialType(item?.category) }))
+        : []
+      fd.append('materialList', JSON.stringify(normalizedProjectItems))
+      if (contractFormData.contractFile) {
+        fd.append('contractFile', contractFormData.contractFile)
+      }
+
+      if (editingContract) {
+        await updateSupplierContract(editingContract.id, fd)
+        alert('\u91c7\u8d2d\u5408\u540c\u66f4\u65b0\u6210\u529f')
+      } else {
+        await createSupplierContract(fd)
+        alert('\u91c7\u8d2d\u5408\u540c\u65b0\u589e\u6210\u529f')
+      }
+
+      await loadContracts(resolvedProjectId)
+      resetContractForm()
+    } catch (e) {
+      alert(getReadableError(e, '\u91c7\u8d2d\u5408\u540c\u4fdd\u5b58\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5'))
+    }
+  }
+
+  const handleContractEdit = (contract) => {
+    setEditingContract(contract)
+    setContractFormData({
+      contractNo: contract.contractNo || '',
+      contractName: contract.contractName || '',
+      supplierName: contract.supplierName || '',
+      contractAmount: contract.contractAmount || '',
+      paymentMethod: contract.paymentMethod || '',
+      amountExclTax: contract.amountExclTax || '',
+      taxAmount: contract.taxAmount || '',
+      contractAmountUpper: contract.contractAmountUpper || '',
+      materialList: contract.materialList || '',
+      dateText: contract.dateText || '',
+      signDate: contract.signDate || '',
+      startDate: contract.startDate || '',
+      endDate: contract.endDate || '',
+      warrantyPeriod: contract.warrantyPeriod || '',
+      deliveryLocation: contract.deliveryLocation || '',
+      receiver: contract.receiver || '',
+      qualityStandard: contract.qualityStandard || '',
+      projectId: contract.projectId || '',
+      contactPerson: contract.contactPerson || '',
+      contactPhone: contract.contactPhone || '',
+      supplierAddress: contract.supplierAddress || '',
+      buyerName: contract.buyerName || contract.contactPerson || '',
+      buyerAddress: contract.buyerAddress || contract.supplierAddress || '',
+      buyerBankName: contract.buyerBankName || '',
+      buyerBankAccount: contract.buyerBankAccount || contract.bankAccount || '',
+      taxNumber: contract.taxNumber || '',
+      bankAccount: contract.bankAccount || '',
+      status: contract.status || 'draft'
+    })
+    // 鍔犺浇椤圭洰娓呭崟鏉＄洰
+    setProjectItems(contract.projectItems || [])
+    setShowContractForm(true)
+  }
+
+  const handleContractDelete = async (contract) => {
+    if (!confirm('纭畾瑕佸垹闄ゅ悎鍚?' + contract.contractName + '"鍚楋紵')) return
+    try {
+      await deleteSupplierContract(contract.id)
+      await loadContracts(selectedProject?.id)
+      alert('\\u5408\\u540c\\u6a21\\u677f\\u4e0a\\u4f20\\u6210\\u529f')
+    } catch (e) {
+      alert(e.message || '\\u5408\\u540c\\u6a21\\u677f\\u4e0a\\u4f20\\u5931\\u8d25')
+    }
+  }
+
+  const resetContractForm = () => {
+    setShowContractForm(false)
+    setEditingContract(null)
+    setShowSupplierNameSuggestions(false)
+    setProjectItems([]) // 閲嶇疆椤圭洰娓呭崟鏉＄洰
+    setNewProjectItem({
+      name: '',
+      specification: '',
+      unit: '',
+      quantity: '',
+      unitPrice: '',
+      totalPrice: '',
+      remarks: '',
+      category: MATERIAL_CATEGORY_MATERIAL
+    })
+    setContractFormData({
+      contractNo: '',
+      contractName: '',
+      supplierName: '',
+      contractAmount: '',
+      paymentMethod: '',
+      amountExclTax: '',
+      taxAmount: '',
+      contractAmountUpper: '',
+      materialList: '',
+      dateText: '',
+      signDate: '',
+      startDate: '',
+      endDate: '',
+      warrantyPeriod: '',
+      deliveryLocation: '',
+      receiver: '',
+      qualityStandard: '',
+      projectId: selectedProject?.id || '',
+      contactPerson: '',
+      contactPhone: '',
+      supplierAddress: '',
+      buyerName: '',
+      buyerAddress: '',
+      buyerBankName: '',
+      buyerBankAccount: '',
+      taxNumber: '',
+      bankAccount: '',
+      status: 'draft',
+      contractFile: null,
+      contractFileName: ''
+    })
+  }
+
+  // 鐢熸垚鍚堝悓缂栧彿锛欻N-CG-Year-Month-Day-Sequence
+  const generateContractNo = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    
+    // 鑾峰彇浠婂ぉ宸插垱寤虹殑鍚堝悓鏁伴噺浣滀负搴忓彿
+    const todayContracts = contracts.filter(c => {
+      const cDate = new Date(c.createdAt || new Date())
+      return cDate.getFullYear() === year && 
+             cDate.getMonth() === now.getMonth() && 
+             cDate.getDate() === now.getDate()
+    })
+    const sequence = String(todayContracts.length + 1).padStart(3, '0')
+    
+    return `HN-CG-${year}-${month}-${day}-${sequence}`
+  }
+
+  // 椤圭洰娓呭崟鏉＄洰绠＄悊鍑芥暟
+  const addProjectItem = () => {
+    if (!newProjectItem.name.trim()) {
+      alert('请填写项目材料名称')
+      return
+    }
+    
+    const item = {
+      id: Date.now().toString(),
+      ...newProjectItem,
+      quantity: Number(newProjectItem.quantity) || 0,
+      unitPrice: Number(newProjectItem.unitPrice) || 0,
+      totalPrice: Number(newProjectItem.totalPrice) || 0
+    }
+    
+    setProjectItems([...projectItems, item])
+    setNewProjectItem({
+      name: '',
+      specification: '',
+      unit: '',
+      quantity: '',
+      unitPrice: '',
+      totalPrice: '',
+      remarks: '',
+      category: MATERIAL_CATEGORY_MATERIAL
+    })
+    setShowSuggestions(false)
+  }
+
+  const removeProjectItem = (id) => {
+    setProjectItems(projectItems.filter(item => item.id !== id))
+  }
+
+  const updateProjectItemPrice = (field, value) => {
+    const updatedItem = { ...newProjectItem, [field]: value }
+    
+    if (field === 'quantity' || field === 'unitPrice') {
+      const quantity = Number(updatedItem.quantity) || 0
+      const unitPrice = Number(updatedItem.unitPrice) || 0
+      updatedItem.totalPrice = (quantity * unitPrice).toFixed(2)
+    }
+    
+    setNewProjectItem(updatedItem)
+  }
+
+  // 鏉愭枡鎼滅储鑱旀兂鍔熻兘
+  const searchMaterialsWithDelay = async (query) => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    
+    if (!query.trim()) {
+      setMaterialSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    
+    const timeout = setTimeout(async () => {
+      try {
+        console.log('鎼滅储鏉愭枡:', query) // 璋冭瘯鏃ュ織
+        const results = await searchMaterials(query)
+        console.log('鎼滅储缁撴灉:', results) // 璋冭瘯鏃ュ織
+        setMaterialSuggestions(results.slice(0, 10)) // 闄愬埗鏄剧ず10涓缓璁?        setShowSuggestions(results.length > 0)
+      } catch (e) {
+        console.error('鎼滅储鏉愭枡澶辫触:', e)
+        setMaterialSuggestions([])
+        setShowSuggestions(false)
+      }
+    }, 300) // 300ms寤惰繜
+    
+    setSearchTimeout(timeout)
+  }
+
+  const selectMaterialSuggestion = (material) => {
+    console.log('閫夋嫨鏉愭枡寤鸿:', material) // 璋冭瘯鏃ュ織
+    setNewProjectItem({
+      ...newProjectItem,
+      name: material.name || '',
+      specification: material.specification || '',
+      unit: material.unit || '',
+      unitPrice: material.unitPrice || ''
+    })
+    setShowSuggestions(false)
+    setMaterialSuggestions([])
+  }
+
+  const handleMaterialNameChange = (value) => {
+    console.log('鏉愭枡鍚嶇О杈撳叆鍙樺寲:', value) // 璋冭瘯鏃ュ織
+    setNewProjectItem({...newProjectItem, name: value})
+    if (value.trim().length >= 1) { // 鑷冲皯杈撳叆1涓瓧绗︽墠寮€濮嬫悳绱?      searchMaterialsWithDelay(value)
+    } else {
+      setMaterialSuggestions([])
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleMaterialFormNameChange = (value) => {
+    setMaterialFormData({...materialFormData, name: value})
+    if (value.trim().length >= 1) {
+      searchMaterialsWithDelay(value)
+      setShowMaterialFormSuggestions(true)
+    } else {
+      setMaterialSuggestions([])
+      setShowMaterialFormSuggestions(false)
+    }
+  }
+
+  const selectMaterialFormSuggestion = (material) => {
+    setMaterialFormData({
+      ...materialFormData,
+      name: material.name || '',
+      specification: material.specification || '',
+      unit: material.unit || '',
+      unitPrice: material.unitPrice || ''
+    })
+    setShowMaterialFormSuggestions(false)
+    setMaterialSuggestions([])
+  }
+
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      draft: { text: '\u8349\u7a3f', class: 'badge-info' },
+      pending: { text: '\u5f85\u5ba1\u6279', class: 'badge-warning' },
+      approved: { text: '\u5df2\u5ba1\u6279', class: 'badge-success' },
+      rejected: { text: '\u5df2\u9a73\u56de', class: 'badge-danger' }
+    }
+    const statusInfo = statusMap[status] || statusMap.draft
+    return (
+      <span className={`modern-badge ${statusInfo.class}`}>
+        {statusInfo.text}
+      </span>
+    )
+  }
+
+  const linkedProjectId = contractFormData.projectId || selectedProject?.id || ''
+  const linkedProject = projects.find(p => p.id === linkedProjectId)
+  const linkedProjectText = linkedProject
+    ? `${linkedProject.name}${linkedProject.code ? ` (${linkedProject.code})` : ''}`
+    : (linkedProjectId || '-')
+
+  return (
+    <div className="min-h-screen p-2 pb-16">
+      {/* 椤甸潰澶撮儴 */}
+      <div className="modern-card p-3 mb-3 animate-fade-in-up">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <Business className="text-white text-lg" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-gray-800">
+                {isProcurementManager || isCostManager ? '\u91c7\u8d2d\u4e0e\u5408\u540c' : '\u9879\u76ee\u7ba1\u7406'}
+              </h1>
+              <p className="text-xs text-gray-600">
+                {isProcurementManager || isCostManager
+                  ? '\u9879\u76ee\u4fe1\u606f\u3001\u6750\u6599\u6e05\u5355\u3001\u91c7\u8d2d\u5408\u540c\u7edf\u4e00\u7ba1\u7406'
+                  : (canViewDashboard ? '\u9879\u76ee\u603b\u89c8\u4e0e\u8fdb\u5ea6\u7edf\u8ba1' : '\u7ba1\u7406\u9879\u76ee\u57fa\u7840\u4fe1\u606f')}
+              
+              </p>
+            </div>
+          </div>
+          {canManageProjects && (
+            <button 
+              onClick={() => setShowForm(true)}
+              className="modern-btn flex items-center gap-1 text-xs px-2 py-1"
+            >
+              <Add className="text-sm" />
+              <span className="hidden sm:inline">鏂板缓椤圭洰</span>
+              <span className="sm:hidden">鏂板缓</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 椤圭洰缁熻鐪嬫澘 - 浠呰懀浜嬮暱銆佸壇钁ｄ簨闀裤€佹€荤粡鐞嗗彲瑙?*/}
+      {canViewDashboard && (
+        <>
+          {/* 涓昏缁熻鍗＄墖 */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+            <div className="p-4 bg-blue-600 text-white rounded-2xl shadow-lg animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-base font-bold mb-2" style={{ color: 'white !important' }}>椤圭洰鎬绘暟</p>
+                  <p className="text-3xl font-black text-white" style={{ color: 'white !important' }}>{projects.length || 0}</p>
+                </div>
+                <Business className="text-4xl text-white opacity-80" style={{ color: 'white !important' }} />
+              </div>
+            </div>
+            
+            <div className="p-4 bg-green-600 text-white rounded-2xl shadow-lg animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-base font-bold mb-2" style={{ color: 'white !important' }}>椤圭洰鎬婚</p>
+                  <p className="text-xl font-black text-white" style={{ color: 'white !important' }}>
+                    楼{(projects.reduce((sum, p) => sum + (Number(p.totalBudget) || 0), 0) / 10000).toFixed(1) || '0.0'}涓?                  </p>
+                </div>
+                <AttachMoney className="text-4xl text-white opacity-80" style={{ color: 'white !important' }} />
+              </div>
+            </div>
+            
+            <div className="p-4 bg-teal-600 text-white rounded-2xl shadow-lg animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-base font-bold mb-2" style={{ color: 'white !important' }}>鍓╀綑閲戦</p>
+                  <p className="text-xl font-black text-white" style={{ color: 'white !important' }}>
+                    楼{(projects.reduce((sum, p) => sum + (Number(p.balance) || Number(p.totalBudget) || 0), 0) / 10000).toFixed(1) || '0.0'}涓?                  </p>
+                </div>
+                <svg className="w-10 h-10 text-white opacity-80" fill="white" viewBox="0 0 24 24" style={{ color: 'white !important' }}>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-orange-600 text-white rounded-2xl shadow-lg animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-base font-bold mb-2" style={{ color: 'white !important' }}>项目总数</p>
+                  <p className="text-3xl font-black text-white" style={{ color: 'white !important' }}>
+                    {projects.filter(p => p.approvalStatus === 'approved' || p.approvalStatus === 'pending').length || 0}
+                  </p>
+                </div>
+                <CalendarToday className="text-4xl text-white opacity-80" style={{ color: 'white !important' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* 椤圭洰鐘舵€佸浘琛ㄥ拰璇︾粏缁熻 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+            {/* 椤圭洰鐘舵€侀ゼ鍥?*/}
+            <div className="modern-card p-4 animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
+              <h3 className="text-base font-bold text-gray-800 mb-4">项目审批状态</h3>
+              <div className="flex items-center justify-center">
+                <div className="relative w-24 h-24">
+                  {/* 绠€鍗曠殑CSS楗煎浘 */}
+                  <div className="w-full h-full rounded-full bg-gradient-to-r from-green-400 to-blue-500 relative overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-white rounded-full w-12 h-12 flex items-center justify-center">
+                        <span className="text-base font-bold text-gray-800">{projects.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-700 font-medium">已审批</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800">{projects.filter(p => p.approvalStatus === 'approved').length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                    <span className="text-sm text-gray-700 font-medium">待审批</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800">{projects.filter(p => p.approvalStatus === 'pending').length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                    <span className="text-sm text-gray-700 font-medium">鑽夌</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800">{projects.filter(p => p.approvalStatus === 'draft' || !p.approvalStatus).length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 棰勭畻浣跨敤鎯呭喌 */}
+            <div className="modern-card p-4 animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
+              <h3 className="text-base font-bold text-gray-800 mb-4">棰勭畻浣跨敤鎯呭喌</h3>
+              <div className="space-y-4">
+                {projects.slice(0, 5).map((project, index) => {
+                  const totalBudget = Number(project.totalBudget) || 0
+                  const usedBudget = totalBudget - (Number(project.balance) || totalBudget)
+                  const usagePercent = totalBudget > 0 ? (usedBudget / totalBudget * 100) : 0
+                  
+                  return (
+                    <div key={project.id} className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700 truncate">{project.name}</span>
+                        <span className="text-sm font-bold text-gray-800">{usagePercent.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-600">
+                        <span>已用: ¥{(usedBudget / 10000).toFixed(1)}万</span>
+                        <span>总额: ¥{(totalBudget / 10000).toFixed(1)}万</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 閲囪喘缁忕悊/閫犱环缁忕悊涓撶敤 - 椤圭洰閫夋嫨鍜屼俊鎭睍绀猴紙鍦ㄦ爣绛句笂鏂癸級 */}
+      {(isProcurementManager || isCostManager) && (
+        <div className="space-y-2 mb-3 animate-fade-in-up" style={{ animationDelay: '0.7s' }}>
+          {/* 椤圭洰閫夋嫨涓嬫媺 */}
+          <div className="modern-card p-3">
+            <label className="block text-gray-700 font-medium mb-2 text-xs">{'\u5173\u8054\u9879\u76ee'}</label>
+            <select
+              className="modern-input w-full text-xs"
+              value={selectedProject?.id || ''}
+              onChange={(e) => {
+                const project = projects.find(p => p.id === e.target.value)
+                setSelectedProject(project)
+              }}
+            >
+              <option value="">-- {'\u8bf7\u9009\u62e9\u9879\u76ee'} --</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name} ({'\u00A5'}{(Number(project.totalBudget || 0) / 10000).toFixed(1)}{'\u4e07'})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* 閲囪喘缁忕悊/閫犱环缁忕悊涓撶敤鏍囩椤靛鑸?*/}
+      {(isProcurementManager || isCostManager) && (
+        <div className="modern-card mb-3 animate-fade-in-up" style={{ animationDelay: '0.75s' }}>
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'projects'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Business className="text-sm mr-1" />
+              {'\u9879\u76ee\u603b\u89c8'}
+            </button>
+            <button
+              onClick={() => setActiveTab('materials')}
+              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'materials'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Category className="text-sm mr-1" />
+              {'\u7269\u6599\u91c7\u8d2d'}
+            </button>
+            <button
+              onClick={() => setActiveTab('contracts')}
+              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'contracts'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Assignment className="text-sm mr-1" />
+              {'\u5408\u540c\u7ba1\u7406'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 鍐呭鍖哄煙 - 鏍规嵁瑙掕壊鍜屾爣绛炬樉绀轰笉鍚屽唴瀹?*/}
+      <div className="animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
+        {/* 閲囪喘缁忕悊/閫犱环缁忕悊 - 椤圭洰浠嬬粛鏍囩 */}
+        {(isProcurementManager || isCostManager) && activeTab === 'projects' && (
+          <div className="space-y-3">
+            {!selectedProject ? (
+              <div className="modern-card p-6 text-center text-gray-500 text-xs">
+                璇峰厛閫夋嫨涓€涓」鐩?              </div>
+            ) : (
+              <div className="modern-card p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u9879\u76ee\u540d\u79f0'}</p>
+                    <p className="text-gray-800 text-sm font-semibold">{selectedProject.name}</p>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u9879\u76ee\u7f16\u53f7'}</p>
+                    <p className="text-gray-800 text-sm">{selectedProject.code || '-'}</p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u5408\u540c\u7f16\u53f7'}</p>
+                    <p className="text-gray-800 text-sm">{selectedProject.contractNo || '-'}</p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u4e1a\u4e3b\u5355\u4f4d'}</p>
+                    <p className="text-gray-800 text-sm truncate">{selectedProject.client || '-'}</p>
+                  </div>
+                  <div className="bg-orange-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u5408\u540c\u603b\u989d'}</p>
+                    <p className="text-gray-800 text-sm font-semibold">{'\u00A5'}{Number(selectedProject.totalBudget || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-orange-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u7ed3\u7b97\u91d1\u989d'}</p>
+                    <p className="text-gray-800 text-sm">{'\u00A5'}{Number(selectedProject.settlementAmount || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u9879\u76ee\u7ecf\u7406'}</p>
+                    <p className="text-gray-800 text-sm truncate">{selectedProject.projectManager || '-'}</p>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-1">{'\u5f00\u59cb\u65f6\u95f4'}</p>
+                    <p className="text-gray-800 text-sm">{selectedProject.startDate || '-'}</p>
+                  </div>
+                </div>
+                
+                {selectedProject.projectOverview && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm mb-2">{'\u9879\u76ee\u6982\u51b5'}</p>
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap">{selectedProject.projectOverview}</p>
+                  </div>
+                )}
+                
+                {selectedProject.paymentMethod && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 font-medium mb-2 text-sm">{'\u4ed8\u6b3e\u65b9\u5f0f'}</p>
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap">{selectedProject.paymentMethod}</p>
+                  </div>
+                )}
+                
+                {selectedProject.invoiceInfo && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 font-medium mb-2 text-sm">{'\u5f00\u7968\u4fe1\u606f'}</p>
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap">{selectedProject.invoiceInfo}</p>
+                  </div>
+                )}
+                
+                {selectedProject.description && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 font-medium mb-2 text-sm">{'\u9879\u76ee\u63cf\u8ff0'}</p>
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap">{selectedProject.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 閲囪喘缁忕悊/閫犱环缁忕悊 - 鏉愭枡娓呭崟鏍囩 */}
+        {(isProcurementManager || isCostManager) && activeTab === 'materials' && (
+          <div className="space-y-3">
+            <div className="modern-card p-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-800">
+                  {'\u7269\u6599\u91c7\u8d2d'} {selectedProject && `- ${selectedProject.name}`}
+                </h3>
+                <button 
+                  onClick={() => {
+                    resetMaterialForm()
+                    setShowMaterialForm(true)
+                  }}
+                  className="modern-btn flex items-center gap-1 text-xs px-2 py-1"
+                >
+                  <Add className="text-sm" />
+                  {'\u65b0\u589e\u7269\u6599'}
+                </button>
+              </div>
+            </div>
+
+            {!selectedProject ? (
+              <div className="modern-card p-6 text-center text-gray-500 text-xs">
+                璇峰厛閫夋嫨涓€涓」鐩?              </div>
+            ) : (
+              <>
+                {/* 鎸夊垎绫绘樉绀烘潗鏂?*/}
+                {MATERIAL_CATEGORIES.map((category) => {
+                  const categoryMaterials = materials.filter(m => normalizeMaterialType(m.type) === category)
+                  return (
+                    <div key={category} className="modern-card p-3">
+                      <h4 className="text-xs font-bold text-gray-800 mb-3 pb-2 border-b-2 border-blue-500">
+                        {category} ({categoryMaterials.length})
+                      </h4>
+                      
+                      {categoryMaterials.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500 text-xs">
+                          {'\u6682\u65e0'}{category}{'\u6570\u636e'}
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="modern-table w-full text-sm">
+                            <thead>
+                              <tr>
+                                <th className="text-sm">{'\u7269\u6599\u540d\u79f0'}</th>
+                                <th className="text-sm">{'\u89c4\u683c\u578b\u53f7'}</th>
+                                <th className="text-sm">{'\u5355\u4f4d'}</th>
+                                <th className="text-sm">{'\u6570\u91cf'}</th>
+                                <th className="text-sm">{'\u5355\u4ef7'}</th>
+                                <th className="text-sm">{'\u603b\u4ef7'}</th>
+                                <th className="text-sm">{'\u4f9b\u5e94\u5546'}</th>
+                                <th className="text-sm">{'\u64cd\u4f5c'}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {categoryMaterials.map((material) => (
+                                <tr key={material.id} className={`border-t ${editingMaterial?.id === material.id ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
+                                  {editingMaterial?.id === material.id ? (
+                                    <>
+                                      <td className="p-1"><input type="text" className="modern-input w-full text-xs" value={materialFormData.name} onChange={e => setMaterialFormData({...materialFormData, name: e.target.value})} /></td>
+                                      <td className="p-1"><input type="text" className="modern-input w-full text-xs" value={materialFormData.specification} onChange={e => setMaterialFormData({...materialFormData, specification: e.target.value})} /></td>
+                                      <td className="p-1"><input type="text" className="modern-input w-full text-xs" value={materialFormData.unit} onChange={e => setMaterialFormData({...materialFormData, unit: e.target.value})} /></td>
+                                      <td className="p-1"><input type="number" step="0.01" className="modern-input w-full text-xs" value={materialFormData.quantity} onChange={e => {const q = e.target.value; const tp = q && materialFormData.unitPrice ? (Number(q) * Number(materialFormData.unitPrice)).toFixed(2) : ''; setMaterialFormData({...materialFormData, quantity: q, totalPrice: tp})}} /></td>
+                                      <td className="p-1"><input type="number" step="0.01" className="modern-input w-full text-xs" value={materialFormData.unitPrice} onChange={e => {const p = e.target.value; const tp = materialFormData.quantity && p ? (Number(materialFormData.quantity) * Number(p)).toFixed(2) : ''; setMaterialFormData({...materialFormData, unitPrice: p, totalPrice: tp})}} /></td>
+                                      <td className="p-1"><input type="number" step="0.01" className="modern-input w-full text-xs" value={materialFormData.totalPrice} onChange={e => setMaterialFormData({...materialFormData, totalPrice: e.target.value})} /></td>
+                                      <td className="p-1">
+                                        <select
+                                          className="modern-input w-full text-xs"
+                                          value={materialFormData.supplier}
+                                          onChange={e => setMaterialFormData({...materialFormData, supplier: e.target.value})}
+                                        >
+                                          <option value="">请选择供应商</option>
+                                          {materialSupplierOptions.map((supplierName) => (
+                                            <option key={supplierName} value={supplierName}>{supplierName}</option>
+                                          ))}
+                                        </select>
+                                      </td>
+                                      <td className="p-1">
+                                        <div className="flex items-center gap-1">
+                                          <button onClick={handleMaterialSubmit} className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">{'\u4fdd\u5b58'}</button>
+                                          <button onClick={resetMaterialForm} className="px-2 py-1 bg-gray-400 text-white rounded text-xs hover:bg-gray-500">{'\u53d6\u6d88'}</button>
+                                        </div>
+                                      </td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="font-medium text-xs">{material.name}</td>
+                                      <td className="text-xs">{material.specification}</td>
+                                      <td className="text-xs">{material.unit}</td>
+                                      <td className="text-xs">{material.quantity}</td>
+                                      <td className="text-xs">{'\u00A5'}{Number(material.unitPrice || 0).toLocaleString()}</td>
+                                      <td className="text-xs">{'\u00A5'}{Number(material.totalPrice || 0).toLocaleString()}</td>
+                                      <td className="text-xs">{material.supplier}</td>
+                                      <td className="text-xs">
+                                        <div className="flex items-center gap-1">
+                                          <button 
+                                            onClick={() => handleMaterialEdit(material)}
+                                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                                          >
+                                            <Edit className="text-sm" />
+                                          </button>
+                                          <button 
+                                            onClick={() => handleMaterialDelete(material)}
+                                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                          >
+                                            <Delete className="text-sm" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 閲囪喘缁忕悊/閫犱环缁忕悊 - 閲囪喘鍚堝悓鏍囩 */}
+        {(isProcurementManager || isCostManager) && activeTab === 'contracts' && (
+          <div className="space-y-3">
+            <div className="modern-card p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-bold text-gray-800">{'\u5408\u540c\u7ba1\u7406\u6982\u89c8'}</h3>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="contract-template-upload-input-main"
+                    type="file"
+                    accept=".docx"
+                    className="hidden"
+                    onChange={handleContractTemplateUpload}
+                  />
+                  <label
+                    htmlFor="contract-template-upload-input-main"
+                    className="px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  >
+                    {contractTemplateUploading ? '\u4e0a\u4f20\u4e2d...' : '\u4e0a\u4f20\u6a21\u677f'}
+                  </label>
+                  <button 
+                    onClick={() => {
+                      setShowContractForm(true)
+                      setContractFormData(prev => ({
+                        ...prev,
+                        contractNo: generateContractNo(),
+                        projectId: selectedProject?.id || prev.projectId
+                      }))
+                    }}
+                    className="modern-btn flex items-center gap-1 text-xs px-2 py-1"
+                  >
+                    <Add className="text-sm" />
+                    {'\u65b0\u5efa\u91c7\u8d2d\u5408\u540c'}
+                  </button>
+                </div>
+              </div>
+              {contractTemplateMeta?.fields?.length > 0 && (
+                <p className="mt-2 text-[11px] text-gray-500">
+                  {'\u6a21\u677f\u5b57\u6bb5'}: {contractTemplateMeta.fields.join(', ')}
+                </p>
+              )}
+            </div>
+
+            {!selectedProject ? (
+              <div className="modern-card p-6 text-center text-gray-500 text-xs">
+                {'\u8bf7\u5148\u9009\u62e9\u5173\u8054\u9879\u76ee\u540e\u67e5\u770b\u5408\u540c'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {contracts.length === 0 ? (
+                  <div className="modern-card p-6 text-center text-gray-500 text-xs col-span-full">
+                    {'\u6682\u65e0\u5408\u540c\u6570\u636e'}
+                  </div>
+                ) : (
+                  contracts.map((contract) => (
+                    <div key={contract.id} className="modern-card p-3 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium text-gray-800 text-sm">{contract.contractName}</h4>
+                            {getStatusBadge(contract.status)}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                            <div className="bg-blue-50 p-2 rounded">
+                              <p className="text-gray-600 font-medium text-xs">{'\u5408\u540c\u7f16\u53f7'}</p>
+                              <p className="text-gray-800 text-sm">{contract.contractNo}</p>
+                            </div>
+                            <div className="bg-blue-50 p-2 rounded">
+                              <p className="text-gray-600 font-medium text-xs">{'\u4f9b\u5e94\u5546'}</p>
+                              <p className="text-gray-800 text-sm truncate">{contract.supplierName}</p>
+                            </div>
+                            <div className="bg-green-50 p-2 rounded">
+                              <p className="text-gray-600 font-medium text-xs">{'\u5408\u540c\u91d1\u989d'}</p>
+                              <p className="text-gray-800 text-sm">{'\u00A5'}{Number(contract.contractAmount).toLocaleString()}</p>
+                            </div>
+                            <div className="bg-green-50 p-2 rounded">
+                              <p className="text-gray-600 font-medium text-xs">{'\u4ed8\u6b3e\u65b9\u5f0f'}</p>
+                              <p className="text-gray-800 text-sm truncate">{contract.paymentMethod || '-'}</p>
+                            </div>
+                            <div className="bg-purple-50 p-2 rounded md:col-span-2">
+                              <p className="text-gray-600 font-medium text-xs">{'\u5173\u8054\u9879\u76ee'}</p>
+                              <p className="text-gray-800 text-sm truncate">
+                                {(() => {
+                                  const p = projects.find(x => x.id === contract.projectId)
+                                  return p ? `${p.name}${p.code ? ` (${p.code})` : ''}` : (contract.projectId || '-')
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                          <button 
+                            onClick={() => handleContractWordExport(contract)}
+                            className="px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50 rounded border border-emerald-200"
+                          >
+                            {'\u5bfc\u51fa Word'}
+                          </button>
+                          <button 
+                            onClick={() => handleContractEdit(contract)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit className="text-sm" />
+                          </button>
+                          <button 
+                            onClick={() => handleContractDelete(contract)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Delete className="text-sm" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 鍏朵粬瑙掕壊 - 椤圭洰鍒楄〃 */}
+        {!isProcurementManager && !isCostManager && (
+          <div className="space-y-2">
+            <div className="modern-card p-3">
+              <input
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                placeholder="鎼滅储椤圭洰鍚嶇О鎴栭」鐩紪鍙?"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+            {filteredProjects.length === 0 ? (
+              <div className="modern-card p-6 text-center animate-fade-in-up">
+                <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <FolderOpen className="text-2xl text-gray-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-600 mb-1">鏆傛棤椤圭洰</h3>
+                <p className="text-xs text-gray-500 mb-3">寮€濮嬪垱寤烘偍鐨勭涓€涓」鐩</p>
+                {canManageProjects && (
+                  <button 
+                    onClick={() => setShowForm(true)}
+                    className="modern-btn flex items-center gap-1 mx-auto text-xs px-2 py-1"
+                  >
+                    <Add className="text-sm" />
+                    鍒涘缓椤圭洰
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredProjects.map((project, index) => (
+                <div 
+                  key={project.id} 
+                  className="modern-card p-3 animate-fade-in-up hover:shadow-lg transition-all duration-300"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-bold text-gray-800 truncate">{project.name}</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-1 text-xs text-gray-600">
+                        {project.client && (
+                          <div className="flex items-center gap-1">
+                            <Person className="text-sm" />
+                            <span className="truncate">瀹㈡埛: {project.client}</span>
+                          </div>
+                        )}
+                        
+                        {project.totalBudget && (
+                          <div className="flex items-center gap-1">
+                            <AttachMoney className="text-sm" />
+                            <span className="truncate">棰勭畻: 楼{Number(project.totalBudget).toLocaleString()}</span>
+                          </div>
+                        )}
+                        
+                        {project.createdAt && (
+                          <div className="flex items-center gap-1">
+                            <CalendarToday className="text-sm" />
+                            <span className="truncate">鍒涘缓: {new Date(project.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {project.description && (
+                        <p className="mt-1 text-xs text-gray-700 line-clamp-2">{project.description}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col lg:flex-row items-end lg:items-center gap-1 ml-2 flex-shrink-0">
+                      {/* 鏉愭枡绠＄悊鎸夐挳 - 閲囪喘缁忕悊鍜岄」鐩粡鐞嗗彲瑙?*/}
+                      {(isProcurementManager || isPM || isAdmin) && (
+                        <button 
+                          onClick={() => window.open(`/project-materials/${project.id}`, '_blank')}
+                          className="modern-btn-success flex items-center gap-1 text-xs px-2 py-1"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          <span className="hidden sm:inline">鏉愭枡娓呭崟</span>
+                          <span className="sm:hidden">鏉愭枡</span>
+                        </button>
+                      )}
+                      
+                      {canManageProjects && (
+                        <>
+                          <button 
+                            onClick={() => handleEdit(project)}
+                            className="modern-btn-secondary flex items-center gap-1 text-xs px-2 py-1"
+                          >
+                            <Edit className="text-sm" />
+                            <span className="hidden sm:inline">缂栬緫</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(project)}
+                            className="px-2 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Delete className="text-sm" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 椤圭洰琛ㄥ崟寮圭獥 */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[120] p-2 overflow-y-auto">
+          <form onSubmit={handleSubmit} className="modern-card w-full max-w-4xl max-h-[calc(100dvh-1rem)] sm:max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingProject ? '缂栬緫椤圭洰' : '鏂板缓椤圭洰'}
+              </h3>
+              <button type="button" onClick={resetForm} className="text-gray-500 hover:text-gray-800 text-xl">
+                脳
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4 pb-[calc(env(safe-area-inset-bottom)+88px)] sm:pb-4 flex-1 overflow-y-auto">
+              <div className="[&_label]:hidden space-y-4">
+              {/* 鍩烘湰淇℃伅 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">椤圭洰鍚嶇О *</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    placeholder="椤圭洰鍚嶇О"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">椤圭洰缂栧彿</label>
+                  <input
+                    className="modern-input w-full text-xs bg-gray-100"
+                    value={formData.code}
+                    placeholder="鑷姩鐢熸垚"
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">鍚堝悓缂栧彿</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={formData.contractNo}
+                    onChange={e => setFormData({...formData, contractNo: e.target.value})}
+                    placeholder="鍚堝悓缂栧彿"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">鐢叉柟鍗曚綅 *</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={formData.client}
+                    onChange={e => setFormData({...formData, client: e.target.value})}
+                    placeholder="鐢叉柟鍗曚綅鍚嶇О"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">椤圭洰缁忕悊</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={formData.projectManager}
+                    onChange={e => setFormData({...formData, projectManager: e.target.value})}
+                    placeholder="椤圭洰缁忕悊濮撳悕"
+                  />
+                </div>
+              </div>
+
+              {/* 閲戦淇℃伅 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">鍚堝悓閲戦 (鍏? *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs"
+                    value={formData.totalBudget}
+                    onChange={e => setFormData({...formData, totalBudget: e.target.value})}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">缁撶畻閲戦 (鍏?</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs"
+                    value={formData.settlementAmount}
+                    onChange={e => setFormData({...formData, settlementAmount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">椤圭洰鐘舵€</label>
+                  <select
+                    className="modern-input w-full text-xs"
+                    value={formData.status}
+                    onChange={e => setFormData({...formData, status: e.target.value})}
+                  >
+                    <option value="draft">鑽夌</option>
+                    <option value="pending">寰呭鎵</option>
+                    <option value="approved">宸插鎵</option>
+                    <option value="in_progress">杩涜涓</option>
+                    <option value="completed">宸插畬鎴</option>
+                    <option value="suspended">鏆傚仠</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 鏃堕棿淇℃伅 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">寮€濮嬫椂闂</label>
+                  <input
+                    type="date"
+                    className="modern-input w-full text-xs"
+                    value={formData.startDate}
+                    onChange={e => setFormData({...formData, startDate: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">缁撴潫鏃堕棿</label>
+                  <input
+                    type="date"
+                    className="modern-input w-full text-xs"
+                    value={formData.endDate}
+                    onChange={e => setFormData({...formData, endDate: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              {/* 鏂囨湰淇℃伅 - 绱у噾甯冨眬 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">宸ョ▼姒傚喌</label>
+                  <textarea
+                    className="modern-input w-full h-12 resize-none text-xs"
+                    value={formData.projectOverview}
+                    onChange={e => setFormData({...formData, projectOverview: e.target.value})}
+                    placeholder="宸ョ▼姒傚喌鎻忚堪"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">椤圭洰鎻忚堪</label>
+                  <textarea
+                    className="modern-input w-full h-12 resize-none text-xs"
+                    value={formData.description}
+                    onChange={e => setFormData({...formData, description: e.target.value})}
+                    placeholder="椤圭洰鎻忚堪"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">浠樻鏂瑰紡</label>
+                  <textarea
+                    className="modern-input w-full h-12 resize-none text-xs"
+                    value={formData.paymentMethod}
+                    onChange={e => setFormData({...formData, paymentMethod: e.target.value})}
+                    placeholder="濡傦細30%棰勪粯锛?0%鍒拌揣锛?0%楠屾敹"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">寮€绁ㄤ俊鎭</label>
+                  <textarea
+                    className="modern-input w-full h-12 resize-none text-xs"
+                    value={formData.invoiceInfo}
+                    onChange={e => setFormData({...formData, invoiceInfo: e.target.value})}
+                    placeholder="寮€绁ㄤ俊鎭?"
+                  />
+                </div>
+              </div>
+
+              {/* 鏂囦欢涓婁紶 - 绱у噾甯冨眬 */}
+              </div>
+              <div className="border-t pt-3 mt-3">
+                <h4 className="text-sm font-bold text-gray-800 mb-2">鐢叉柟鍚堝悓鍙婃潗鏂</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1 text-xs">鐢叉柟鍚堝悓鏂囦欢</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                      className="modern-input w-full text-xs"
+                      onChange={e => {
+                        const file = e.target.files[0]
+                        if (file) {
+                          setFormData({...formData, contractFile: file, contractFileName: file.name})
+                        }
+                      }}
+                    />
+                    {formData.contractFileName && (
+                      <p className="text-xs text-green-600 mt-1">鉁?{formData.contractFileName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1 text-xs">鍏朵粬椤圭洰鏉愭枡</label>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar"
+                      className="modern-input w-full text-xs"
+                      onChange={e => {
+                        const files = Array.from(e.target.files)
+                        if (files.length > 0) {
+                          setFormData({...formData, otherFiles: files, otherFileNames: files.map(f => f.name)})
+                        }
+                      }}
+                    />
+                    {formData.otherFileNames && formData.otherFileNames.length > 0 && (
+                      <p className="text-xs text-green-600 mt-1">鉁?宸查€夋嫨 {formData.otherFileNames.length} 涓枃浠</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 border-t flex justify-end gap-2 sticky bottom-0 bg-white z-10">
+              <button type="button" onClick={resetForm} className="px-3 py-1 text-gray-600 hover:text-gray-800 text-xs">
+                鍙栨秷
+              </button>
+              <button type="submit" className="modern-btn text-xs px-3 py-1">
+                {editingProject ? '鏇存柊' : '鍒涘缓'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 鏉愭枡琛ㄥ崟 - 妯℃€佸璇濇 */}
+      {showMaterialForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[120] p-2 overflow-y-auto">
+          <form onSubmit={handleMaterialSubmit} className="modern-card w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingMaterial ? '\u7f16\u8f91\u7269\u6599' : '\u65b0\u589e\u7269\u6599'}
+              </h3>
+              <button type="button" onClick={resetMaterialForm} className="text-gray-500 hover:text-gray-800 text-xl">
+                {'\u00D7'}
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="relative">
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u7269\u6599\u540d\u79f0'}*</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.name}
+                    onChange={e => handleMaterialFormNameChange(e.target.value)}
+                    placeholder={'\u8bf7\u8f93\u5165\u7269\u6599\u540d\u79f0'}
+                    required
+                  />
+                  {showMaterialFormSuggestions && materialSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                      {materialSuggestions.map((material, index) => (
+                        <div
+                          key={index}
+                          onClick={() => selectMaterialFormSuggestion(material)}
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 text-xs"
+                        >
+                          <div className="font-medium text-gray-800">{material.name}</div>
+                          <div className="text-gray-600 text-xs">
+                            {material.specification && `\u89c4\u683c: ${material.specification}`}
+                            {material.unit && ` | \u5355\u4f4d: ${material.unit}`}
+                            {material.unitPrice && ` | \u5355\u4ef7: \u00A5${material.unitPrice}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u89c4\u683c\u578b\u53f7'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.specification}
+                    onChange={e => setMaterialFormData({...materialFormData, specification: e.target.value})}
+                    placeholder={'\u8bf7\u8f93\u5165\u89c4\u683c\u578b\u53f7'}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5355\u4f4d'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.unit}
+                    onChange={e => setMaterialFormData({...materialFormData, unit: e.target.value})}
+                    placeholder={'\u4f8b\uff1a\u5428/\u7c73/\u4ef6'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u6570\u91cf'}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.quantity}
+                    onChange={e => {
+                      const q = e.target.value
+                      const tp = q && materialFormData.unitPrice ? (Number(q) * Number(materialFormData.unitPrice)).toFixed(2) : ''
+                      setMaterialFormData({...materialFormData, quantity: q, totalPrice: tp})
+                    }}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5355\u4ef7'}({'\u5143'})</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.unitPrice}
+                    onChange={e => {
+                      const p = e.target.value
+                      const tp = materialFormData.quantity && p ? (Number(materialFormData.quantity) * Number(p)).toFixed(2) : ''
+                      setMaterialFormData({...materialFormData, unitPrice: p, totalPrice: tp})
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u603b\u4ef7'}({'\u5143'})</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs bg-gray-100"
+                    value={materialFormData.totalPrice}
+                    readOnly
+                    placeholder={'\u81ea\u52a8\u8ba1\u7b97'}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4f9b\u5e94\u5546'}</label>
+                  <select
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.supplier}
+                    onChange={e => setMaterialFormData({...materialFormData, supplier: e.target.value})}
+                  >
+                    <option value="">请选择供应商</option>
+                    {materialSupplierOptions.map((supplierName) => (
+                      <option key={supplierName} value={supplierName}>{supplierName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u6750\u6599\u5206\u7c7b'}</label>
+                  <select
+                    className="modern-input w-full text-xs"
+                    value={materialFormData.type}
+                    onChange={e => setMaterialFormData({...materialFormData, type: e.target.value})}
+                  >
+                    <option value={MATERIAL_CATEGORY_MATERIAL}>{MATERIAL_CATEGORY_MATERIAL}</option>
+                    <option value={MATERIAL_CATEGORY_CONSTRUCTION}>{MATERIAL_CATEGORY_CONSTRUCTION}</option>
+                    <option value={MATERIAL_CATEGORY_COMMISSIONING}>{MATERIAL_CATEGORY_COMMISSIONING}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5907\u6ce8'}</label>
+                <textarea
+                  className="modern-input w-full h-12 resize-none text-xs"
+                  value={materialFormData.remarks}
+                  onChange={e => setMaterialFormData({...materialFormData, remarks: e.target.value})}
+                  placeholder={'\u8bf7\u8f93\u5165\u5907\u6ce8\u4fe1\u606f'}
+                />
+              </div>
+            </div>
+
+            <div className="p-3 border-t flex justify-end gap-2 sticky bottom-0 bg-white z-10">
+              <button type="button" onClick={resetMaterialForm} className="px-3 py-1 text-gray-600 hover:text-gray-800 text-xs">
+                {'\u53d6\u6d88'}
+              </button>
+              <button type="submit" className="modern-btn text-xs px-3 py-1">
+                {editingMaterial ? '\u4fdd\u5b58' : '\u65b0\u589e'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 鍚堝悓琛ㄥ崟 - 妯℃€佸璇濇锛堜粎鍦ㄩ噰璐悎鍚屾爣绛炬樉绀猴級 */}
+      {showContractForm && (isProcurementManager || isCostManager) && activeTab === 'contracts' && (
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[120] p-2 overflow-y-auto">
+          <form onSubmit={handleContractSubmit} className="modern-card w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+              <h3 className="text-lg font-bold text-gray-800">
+                {editingContract ? '\u7f16\u8f91\u91c7\u8d2d\u5408\u540c' : '\u65b0\u5efa\u91c7\u8d2d\u5408\u540c'}
+              </h3>
+              <button type="button" onClick={resetContractForm} className="text-gray-500 hover:text-gray-800 text-xl">
+                {'\u00D7'}
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-3 pb-[calc(env(safe-area-inset-bottom)+88px)] sm:pb-4 flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5408\u540c\u540d\u79f0'} *</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.contractName}
+                    onChange={e => setContractFormData({...contractFormData, contractName: e.target.value})}
+                    placeholder={'\u8bf7\u8f93\u5165\u5408\u540c\u540d\u79f0'}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5408\u540c\u7f16\u53f7'}</label>
+                  <input
+                    className="modern-input w-full text-xs bg-gray-100"
+                    value={contractFormData.contractNo}
+                    readOnly
+                    placeholder={'\u81ea\u52a8\u751f\u6210'}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{'\u81ea\u52a8\u7f16\u53f7\u683c\u5f0f'}: HN-CG-Year-Month-Day-Sequence</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5173\u8054\u9879\u76ee'} *</label>
+                  <select
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.projectId || selectedProject?.id || ''}
+                    onChange={e => setContractFormData({ ...contractFormData, projectId: e.target.value })}
+                    required
+                  >
+                    <option value="">{'\u8bf7\u9009\u62e9\u5173\u8054\u9879\u76ee'}</option>
+                    {projects.map(project => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}{project.code ? ` (${project.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u7b7e\u8ba2\u65e5\u671f'}</label>
+                  <input
+                    type="date"
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.signDate}
+                    onChange={e => setContractFormData({ ...contractFormData, signDate: e.target.value })}
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {contractFormData.signDate
+                      ? `${contractFormData.signDate.slice(0, 4)}\u5e74${contractFormData.signDate.slice(5, 7)}\u6708${contractFormData.signDate.slice(8, 10)}\u65e5`
+                      : `??\u5e74??\u6708??\u65e5`}
+                  </p>
+                </div>
+              </div>
+
+              <hr className="border-gray-200" />
+              <div className="relative">
+                <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4f9b\u5e94\u5546\u540d\u79f0'} *</label>
+                <input
+                  className="modern-input w-full text-xs"
+                  value={contractFormData.supplierName}
+                  onChange={e => handleSupplierNameInput(e.target.value)}
+                  onFocus={() => setShowSupplierNameSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSupplierNameSuggestions(false), 120)}
+                  placeholder={'\u8f93\u5165\u4f9b\u5e94\u5546\u540d\u79f0\u53ef\u641c\u7d22\u81ea\u52a8\u5e26\u51fa\u4fe1\u606f'}
+                  required
+                />
+                {showSupplierNameSuggestions && filteredSuppliers.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-40 overflow-y-auto rounded border border-gray-200 bg-white shadow">
+                    {filteredSuppliers.map((supplier) => (
+                      <button
+                        key={supplier.id || supplier.name}
+                        type="button"
+                        className="w-full px-2 py-1 text-left text-xs hover:bg-blue-50"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applySupplierProfile(supplier)}
+                      >
+                        <div className="font-medium text-gray-800">{supplier.name}</div>
+                        <div className="text-gray-500">{[supplier.contact, supplier.phone].filter(Boolean).join(' / ')}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4f9b\u5e94\u5546\u5730\u5740'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.supplierAddress}
+                    onChange={e => setContractFormData({ ...contractFormData, supplierAddress: e.target.value })}
+                    placeholder={'\u4f9b\u5e94\u5546\u5730\u5740'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4f9b\u5e94\u5546\u8054\u7cfb\u4eba\uff08\u540e\u8ddf\u7535\u8bdd\uff09'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.contactPerson}
+                    onChange={e => setContractFormData({ ...contractFormData, contactPerson: e.target.value })}
+                    placeholder={'\u5982\uff1a\u5f20\u4e09 13800000000'}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5f00\u6237\u884c'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.buyerBankName}
+                    onChange={e => setContractFormData({ ...contractFormData, buyerBankName: e.target.value })}
+                    placeholder={'\u5f00\u6237\u884c'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u94f6\u884c\u8d26\u53f7'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.buyerBankAccount}
+                    onChange={e => setContractFormData({ ...contractFormData, buyerBankAccount: e.target.value, bankAccount: e.target.value })}
+                    placeholder={'\u94f6\u884c\u8d26\u53f7'}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4ed8\u6b3e\u65b9\u5f0f'}</label>
+                <textarea
+                  className="modern-input w-full h-12 resize-none text-xs"
+                  value={contractFormData.paymentMethod}
+                  onChange={e => setContractFormData({...contractFormData, paymentMethod: e.target.value})}
+                  placeholder={'\u8bf7\u8f93\u5165\u4ed8\u6b3e\u65b9\u5f0f\uff0c\u5982\uff1a30%\u9884\u4ed8\uff0c60%\u5230\u8d27\uff0c10%\u9a8c\u6536'}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u5408\u540c\u91d1\u989d\u5927\u5199'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.contractAmountUpper}
+                    onChange={e => setContractFormData({ ...contractFormData, contractAmountUpper: e.target.value })}
+                    placeholder={'\u5408\u540c\u91d1\u989d\u5927\u5199'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4e0d\u542b\u7a0e\u91d1\u989d'}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.amountExclTax}
+                    onChange={e => setContractFormData({ ...contractFormData, amountExclTax: e.target.value })}
+                    placeholder={'\u4e0d\u542b\u7a0e\u91d1\u989d'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u7a0e\u989d'}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.taxAmount}
+                    onChange={e => setContractFormData({ ...contractFormData, taxAmount: e.target.value })}
+                    placeholder={'\u7a0e\u989d'}
+                  />
+                </div>
+              </div>
+
+              <hr className="border-gray-200" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u6536\u8d27\u5730\u70b9'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.deliveryLocation}
+                    onChange={e => setContractFormData({ ...contractFormData, deliveryLocation: e.target.value })}
+                    placeholder={'\u6536\u8d27\u5730\u70b9'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u6536\u7b7e\u4eba'}</label>
+                  <input
+                    className="modern-input w-full text-xs"
+                    value={contractFormData.receiver}
+                    onChange={e => setContractFormData({ ...contractFormData, receiver: e.target.value })}
+                    placeholder={'\u6536\u7b7e\u4eba'}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-1 text-xs">{'\u4e0a\u4f20\u5408\u540c\u6587\u4ef6'}</label>
+                <input
+                  type="file"
+                  className="modern-input w-full text-xs"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setContractFormData({...contractFormData, contractFile: file, contractFileName: file.name})
+                    }
+                  }}
+                />
+                {contractFormData.contractFileName && (
+                  <p className="text-xs text-green-600 mt-1">{'\u5df2\u9009\u62e9'}: {contractFormData.contractFileName}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3 border-t flex justify-end gap-2 sticky bottom-0 bg-white z-10">
+              <button type="button" onClick={resetContractForm} className="px-3 py-1 text-gray-600 hover:text-gray-800 text-xs">
+                {'\u53d6\u6d88'}
+              </button>
+              <button type="submit" className="modern-btn text-xs px-3 py-1">
+                {editingContract ? '\u66f4\u65b0' : '\u4fdd\u5b58'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,27 @@
+{
+  "source": "C:\\handv\\华能天津采购合同模版new.docx",
+  "output": "C:\\handv\\contract_template_system_ready_v2.docx",
+  "changes": [
+    {
+      "old": "HNCG--2025-11-07",
+      "new": "{{contract_no}}",
+      "count": 2
+    },
+    {
+      "old": "2025",
+      "new": "{{date_text}}",
+      "count": 1
+    },
+    {
+      "old": "11",
+      "new": "",
+      "count": 1
+    },
+    {
+      "old": " 7",
+      "new": "",
+      "count": 1
+    }
+  ],
+  "change_count": 4
+}

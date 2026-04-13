@@ -1,0 +1,438 @@
+import React, { useEffect, useState } from 'react'
+import { getCurrentUser } from '../store/users'
+import { getApiBase } from '../store/api'
+import { 
+  Add, 
+  Edit, 
+  Star, 
+  Search, 
+  Store, 
+  ChevronRight,
+  Close,
+  Business,
+  Phone,
+  Email
+} from '@mui/icons-material'
+
+const API_BASE = getApiBase()
+
+function authHeaders(base = {}) {
+  const u = getCurrentUser()
+  const token = u?.token
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base
+}
+
+// 供应商API函数
+async function getSuppliers() {
+  const res = await fetch(`${API_BASE}/suppliers`, { headers: authHeaders() })
+  if (!res.ok) throw new Error('获取供应商失败')
+  return res.json()
+}
+
+async function createSupplier(data) {
+  const res = await fetch(`${API_BASE}/suppliers`, {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || '创建供应商失败')
+  }
+  return res.json()
+}
+
+async function updateSupplier(id, data) {
+  const res = await fetch(`${API_BASE}/suppliers/${id}`, {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || '更新供应商失败')
+  }
+  return res.json()
+}
+
+// 供应商表单组件
+function SupplierForm({ supplier, onSubmit, onCancel }) {
+  const [formData, setFormData] = useState(supplier || {
+    name: '',
+    contact: '',
+    phone: '',
+    email: '',
+    address: '',
+    mainProducts: '',
+    status: 'active'
+  })
+
+  useEffect(() => {
+    if (supplier) {
+      setFormData(supplier)
+    }
+  }, [supplier])
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!formData.name.trim()) {
+      alert('请填写供应商名称')
+      return
+    }
+    onSubmit(formData)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <form onSubmit={handleSubmit} className="modern-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b flex justify-between items-center">
+          <h3 className="text-xl font-bold text-gray-800">
+            {supplier ? '编辑供应商' : '新建供应商'}
+          </h3>
+          <button type="button" onClick={onCancel} className="text-gray-500 hover:text-gray-800">
+            <Close sx={{ fontSize: 24 }} />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">供应商名称 *</label>
+              <input
+                className="modern-input w-full"
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+                placeholder="请输入供应商名称"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">联系人</label>
+              <input
+                className="modern-input w-full"
+                value={formData.contact}
+                onChange={e => setFormData({...formData, contact: e.target.value})}
+                placeholder="请输入联系人姓名"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">联系电话</label>
+              <input
+                className="modern-input w-full"
+                value={formData.phone}
+                onChange={e => setFormData({...formData, phone: e.target.value})}
+                placeholder="请输入联系电话"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">邮箱地址</label>
+              <input
+                type="email"
+                className="modern-input w-full"
+                value={formData.email}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+                placeholder="请输入邮箱地址"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-medium mb-2">地址</label>
+            <input
+              className="modern-input w-full"
+              value={formData.address}
+              onChange={e => setFormData({...formData, address: e.target.value})}
+              placeholder="请输入供应商地址"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-medium mb-2">主营产品</label>
+            <textarea
+              className="modern-input w-full h-20 resize-none"
+              value={formData.mainProducts}
+              onChange={e => setFormData({...formData, mainProducts: e.target.value})}
+              placeholder="请输入主营产品描述"
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-medium mb-2">状态</label>
+            <select
+              className="modern-input w-full"
+              value={formData.status}
+              onChange={e => setFormData({...formData, status: e.target.value})}
+            >
+              <option value="active">正常</option>
+              <option value="inactive">停用</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="p-6 border-t flex justify-end gap-3">
+          <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+            取消
+          </button>
+          <button type="submit" className="modern-btn">
+            {supplier ? '更新' : '创建'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+export default function SupplierLibrary() {
+  const user = getCurrentUser()
+  const [suppliers, setSuppliers] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showSupplierForm, setShowSupplierForm] = useState(false)
+  const [editingSupplier, setEditingSupplier] = useState(null)
+  const [selectedSupplier, setSelectedSupplier] = useState(null)
+
+  const isProcurementManager = user?.role === 'procurement_manager'
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      const suppliersData = await getSuppliers()
+      setSuppliers(suppliersData)
+    } catch (e) {
+      console.error('加载数据失败:', e)
+    }
+  }
+
+  const handleCreateSupplier = async (data) => {
+    try {
+      await createSupplier(data)
+      await loadData()
+      setShowSupplierForm(false)
+      alert('供应商创建成功')
+    } catch (e) {
+      alert(e.message)
+    }
+  }
+
+  const handleUpdateSupplier = async (data) => {
+    try {
+      await updateSupplier(editingSupplier.id, data)
+      await loadData()
+      setShowSupplierForm(false)
+      setEditingSupplier(null)
+      alert('供应商更新成功')
+    } catch (e) {
+      alert(e.message)
+    }
+  }
+
+  const openSupplierDetail = (supplier) => {
+    if (selectedSupplier === supplier.id) {
+      setSelectedSupplier(null)
+    } else {
+      setSelectedSupplier(supplier.id)
+    }
+  }
+
+  // 搜索过滤
+  const filteredSuppliers = suppliers.filter(supplier => {
+    const matchesSearch = !searchTerm || 
+      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (supplier.mainProducts && supplier.mainProducts.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    return matchesSearch
+  })
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pb-20">
+      {/* 页面标题 */}
+      <div className="modern-card p-6 mb-6 animate-fade-in-up">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">供应商库</h1>
+            <p className="text-gray-600">管理和查看供应商信息、评价及合作历史</p>
+          </div>
+          <div className="flex gap-3">
+            {isProcurementManager && (
+              <button 
+                onClick={() => setShowSupplierForm(true)}
+                className="modern-btn flex items-center gap-2"
+              >
+                <Add sx={{ fontSize: 16 }} />
+                新建供应商
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 搜索栏 */}
+      <div className="modern-card p-6 mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search sx={{ fontSize: 20 }} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input 
+                type="text"
+                placeholder="搜索供应商名称、联系人或产品..."
+                className="modern-input w-full pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 供应商列表 */}
+      <div className="space-y-4">
+        {filteredSuppliers.length === 0 ? (
+          <div className="modern-card p-12 text-center animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Store sx={{ fontSize: 40 }} className="text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">暂无供应商</h3>
+            <p className="text-gray-500 mb-6">开始添加您的第一个供应商</p>
+            {isProcurementManager && (
+              <button 
+                onClick={() => setShowSupplierForm(true)}
+                className="modern-btn flex items-center gap-2 mx-auto"
+              >
+                <Add sx={{ fontSize: 16 }} />
+                添加供应商
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredSuppliers.map((supplier, index) => (
+            <div 
+              key={supplier.id} 
+              className="modern-card p-6 animate-fade-in-up hover:shadow-lg transition-all duration-300"
+              style={{ animationDelay: `${0.2 + index * 0.1}s` }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                    <Business className="text-white" sx={{ fontSize: 24 }} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{supplier.name}</h3>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                      {supplier.contact && (
+                        <span className="flex items-center gap-1">
+                          <span>联系人: {supplier.contact}</span>
+                        </span>
+                      )}
+                      {supplier.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone sx={{ fontSize: 14 }} />
+                          {supplier.phone}
+                        </span>
+                      )}
+                      {supplier.email && (
+                        <span className="flex items-center gap-1">
+                          <Email sx={{ fontSize: 14 }} />
+                          {supplier.email}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    supplier.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {supplier.status === 'active' ? '正常' : '停用'}
+                  </span>
+                  
+                  {isProcurementManager && (
+                    <button 
+                      onClick={() => {
+                        setEditingSupplier(supplier)
+                        setShowSupplierForm(true)
+                      }}
+                      className="modern-btn-secondary flex items-center gap-2"
+                    >
+                      <Edit sx={{ fontSize: 16 }} />
+                      编辑
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => openSupplierDetail(supplier)}
+                    className="modern-btn flex items-center gap-2"
+                  >
+                    {selectedSupplier === supplier.id ? '收起详情' : '查看详情'}
+                    <ChevronRight 
+                      sx={{ 
+                        fontSize: 16, 
+                        transform: selectedSupplier === supplier.id ? 'rotate(90deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.3s ease'
+                      }} 
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {supplier.mainProducts && (
+                <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                  <span className="text-sm text-gray-600">主营产品: </span>
+                  <span className="text-sm font-medium text-gray-800">{supplier.mainProducts}</span>
+                </div>
+              )}
+
+              {supplier.address && (
+                <div className="text-sm text-gray-600 mb-4">
+                  <span className="font-medium">地址: </span>
+                  {supplier.address}
+                </div>
+              )}
+
+              {/* 展开的详细信息 */}
+              {selectedSupplier === supplier.id && (
+                <div className="mt-4 pt-4 border-t border-gray-200 animate-fade-in-up">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-800 mb-3">详细信息</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">创建时间: </span>
+                        <span className="text-gray-800">
+                          {supplier.createdAt ? new Date(supplier.createdAt).toLocaleDateString() : '-'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">更新时间: </span>
+                        <span className="text-gray-800">
+                          {supplier.updatedAt ? new Date(supplier.updatedAt).toLocaleDateString() : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 表单弹窗 */}
+      {showSupplierForm && (
+        <SupplierForm 
+          supplier={editingSupplier}
+          onSubmit={editingSupplier ? handleUpdateSupplier : handleCreateSupplier}
+          onCancel={() => {
+            setShowSupplierForm(false)
+            setEditingSupplier(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}

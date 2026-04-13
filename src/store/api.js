@@ -3,6 +3,11 @@
 // strips trailing slashes, and handles misconfigurations like '/' or empty.
 
 export function getApiBase() {
+  // 生产环境强制使用相对路径 /api，由 Nginx 或 Express 代理
+  if (import.meta.env.PROD) {
+    return '/api'
+  }
+
   const raw = import.meta?.env?.VITE_API_BASE
   let base = typeof raw === 'string' ? raw.trim() : ''
   if (!base || base === '/') base = '/api'

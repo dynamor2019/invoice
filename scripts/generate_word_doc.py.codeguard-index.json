@@ -1,0 +1,40 @@
+{
+  "file": "scripts/generate_word_doc.py",
+  "updated_at": "2026-04-09T09:45:31",
+  "line_count": 591,
+  "file_hash": "296b6987548415966c97dbe4f1dc156bd7a41586f8abfb7a969b679746e525b3",
+  "entries": [
+    {
+      "feature": "Cell and text style utilities",
+      "line": 13
+    },
+    {
+      "feature": "SRS document assembly orchestration",
+      "line": 33
+    },
+    {
+      "feature": "System overview section builder",
+      "line": 145
+    },
+    {
+      "feature": "Roles and permissions section",
+      "line": 179
+    },
+    {
+      "feature": "Functional requirements section",
+      "line": 225
+    },
+    {
+      "feature": "API specification section",
+      "line": 373
+    },
+    {
+      "feature": "Version history and appendix sections",
+      "line": 496
+    },
+    {
+      "feature": "Program entrypoint and execution",
+      "line": 570
+    }
+  ]
+}

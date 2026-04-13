@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/SupplierLibrary.jsx",
+  "updated_at": "2026-04-09T09:45:51",
+  "line_count": 496,
+  "file_hash": "85b136bb45eb59d759f19f2e83e0775d0eb51816ce5003f279a6f1d8eab9f69d",
+  "entries": [
+    {
+      "feature": "Supplier API helper functions",
+      "line": 19
+    },
+    {
+      "feature": "Supplier form component and submit flow",
+      "line": 59
+    },
+    {
+      "feature": "Supplier library state bootstrap",
+      "line": 233
+    },
+    {
+      "feature": "Data load and supplier CRUD handlers",
+      "line": 243
+    },
+    {
+      "feature": "Supplier detail drawer and list rendering",
+      "line": 297
+    }
+  ]
+}

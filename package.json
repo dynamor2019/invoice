@@ -4,21 +4,26 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
+    "dev": "vite --port 8080",
     "server": "node server/index.cjs",
+    "server:3002": "set PORT=3002 && node server/index.cjs",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview --port 5173"
+    "preview": "vite preview --port 8080"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
+    "docxtemplater": "^3.68.3",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "pizzip": "^3.2.0",
     "pm2": "^6.0.13",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

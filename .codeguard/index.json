@@ -1,0 +1,826 @@
+{
+  "versions": {
+    "src/pages/Settings.jsx": [
+      {
+        "version": 1,
+        "feature": "Settings password submit button visibility",
+        "timestamp": "2026-04-09T10:38:34",
+        "hash": "f8792bc7fdcfca0876522727f92913bf54a43508be27b954e87e092f3a60adb3",
+        "backup_path": "C:/handv/.codeguard/versions/Settings.jsx.e4c6c66bb525.v1.bak",
+        "original_path": "C:/handv/src/pages/Settings.jsx",
+        "file_key": "src/pages/Settings.jsx",
+        "reason": "Auto snapshot after confirm: Fix unreadable white-on-white submit button by using explicit blue button style with responsive width"
+      }
+    ],
+    "src/pages/Projects.jsx": [
+      {
+        "version": 16,
+        "feature": "persist-supplier-contact-fields",
+        "timestamp": "2026-04-12T16:58:42",
+        "hash": "b448718db8b6260fd3606e4af85bb79cdf720aae5e53cdb443c48993b9b374bd",
+        "backup_path": "C:/handv/.codeguard/versions/Projects.jsx.b8dc899675cd.v16.bak",
+        "original_path": "C:/handv/src/pages/Projects.jsx",
+        "file_key": "src/pages/Projects.jsx",
+        "reason": "sync checkpoint before minimal frontend submit patch"
+      }
+    ],
+    "src/pages/Stats.jsx": [
+      {
+        "version": 1,
+        "feature": "restore byPersonTotals aggregation in admin stats",
+        "timestamp": "2026-04-09T15:26:47",
+        "hash": "4cc9c45adcd159d53e91ea973bc8c5c0af7df45ea0730ad02d7f88f68243feb1",
+        "backup_path": "C:/handv/.codeguard/versions/Stats.jsx.76f96208c1bd.v1.bak",
+        "original_path": "C:/handv/src/pages/Stats.jsx",
+        "file_key": "src/pages/Stats.jsx",
+        "reason": "Auto snapshot after confirm: fix runtime ReferenceError byPersonTotals is not defined and recover stats rendering/export dependencies"
+      }
+    ],
+    "src/store/http.js": [
+      {
+        "version": 1,
+        "feature": "material-contract-api-fix",
+        "timestamp": "2026-04-11T17:48:00",
+        "hash": "ed8bca04144e21966040706d99db0989836edf292c3cba31424f6a6e0c571ee1",
+        "backup_path": "C:/handv/.codeguard/versions/http.js.d016368df548.v1.bak",
+        "original_path": "C:/handv/src/store/http.js",
+        "file_key": "src/store/http.js",
+        "reason": "Auto snapshot after confirm: fix upload method support PUT for contract update"
+      }
+    ],
+    "src/store/projects.js": [
+      {
+        "version": 1,
+        "feature": "material-contract-api-fix",
+        "timestamp": "2026-04-11T17:48:00",
+        "hash": "038066d2e2d73f280566c1850bc11f8383dd9d66e0856a3624a93bbc8158bc1e",
+        "backup_path": "C:/handv/.codeguard/versions/projects.js.66787c974003.v1.bak",
+        "original_path": "C:/handv/src/store/projects.js",
+        "file_key": "src/store/projects.js",
+        "reason": "Auto snapshot after confirm: use PUT when updating supplier contract"
+      }
+    ],
+    "server/index.cjs": [
+      {
+        "version": 12,
+        "feature": "fix-template-upload-ebusy",
+        "timestamp": "2026-04-12T20:06:08",
+        "hash": "ff74df8db0675e3e55662a56cf00ca49953784ccf7d969eedb19d96f235ca1f2",
+        "backup_path": "C:/handv/.codeguard/versions/index.cjs.546d8ea40577.v12.bak",
+        "original_path": "C:/handv/server/index.cjs",
+        "file_key": "server/index.cjs",
+        "reason": "checkpoint before changing template upload storage strategy"
+      }
+    ],
+    "src/main.jsx": [
+      {
+        "version": 1,
+        "feature": "remove-alert-wrapper",
+        "timestamp": "2026-04-12T16:49:52",
+        "hash": "ff988e37d5a439b8d45e071069ef3989f183fe10594201e3ee9615483cc27f36",
+        "backup_path": "C:/handv/.codeguard/versions/main.jsx.752aae330339.v1.bak",
+        "original_path": "C:/handv/src/main.jsx",
+        "file_key": "src/main.jsx",
+        "reason": "checkpoint after removing global alert interceptor"
+      }
+    ]
+  },
+  "last_version": {
+    "src/pages/Settings.jsx": 1,
+    "src/pages/Projects.jsx": 16,
+    "src/pages/Stats.jsx": 1,
+    "src/store/http.js": 1,
+    "src/store/projects.js": 1,
+    "server/index.cjs": 12,
+    "src/main.jsx": 1
+  },
+  "current_state": {
+    "src/pages/Settings.jsx": {
+      "timestamp": "2026-04-09T10:38:34",
+      "feature": "Settings password submit button visibility",
+      "hash": "f8792bc7fdcfca0876522727f92913bf54a43508be27b954e87e092f3a60adb3",
+      "path": "C:/handv/src/pages/Settings.jsx",
+      "source": "snapshot",
+      "reason": "Auto snapshot after confirm: Fix unreadable white-on-white submit button by using explicit blue button style with responsive width"
+    },
+    "src/pages/Projects.jsx": {
+      "timestamp": "2026-04-12T16:58:42",
+      "feature": "persist-supplier-contact-fields",
+      "hash": "b448718db8b6260fd3606e4af85bb79cdf720aae5e53cdb443c48993b9b374bd",
+      "path": "C:/handv/src/pages/Projects.jsx",
+      "source": "snapshot",
+      "reason": "sync checkpoint before minimal frontend submit patch"
+    },
+    "src/pages/Stats.jsx": {
+      "timestamp": "2026-04-09T15:26:47",
+      "feature": "restore byPersonTotals aggregation in admin stats",
+      "hash": "4cc9c45adcd159d53e91ea973bc8c5c0af7df45ea0730ad02d7f88f68243feb1",
+      "path": "C:/handv/src/pages/Stats.jsx",
+      "source": "snapshot",
+      "reason": "Auto snapshot after confirm: fix runtime ReferenceError byPersonTotals is not defined and recover stats rendering/export dependencies"
+    },
+    "src/store/http.js": {
+      "timestamp": "2026-04-11T17:48:00",
+      "feature": "material-contract-api-fix",
+      "hash": "ed8bca04144e21966040706d99db0989836edf292c3cba31424f6a6e0c571ee1",
+      "path": "C:/handv/src/store/http.js",
+      "source": "snapshot",
+      "reason": "Auto snapshot after confirm: fix upload method support PUT for contract update"
+    },
+    "src/store/projects.js": {
+      "timestamp": "2026-04-11T17:48:00",
+      "feature": "material-contract-api-fix",
+      "hash": "038066d2e2d73f280566c1850bc11f8383dd9d66e0856a3624a93bbc8158bc1e",
+      "path": "C:/handv/src/store/projects.js",
+      "source": "snapshot",
+      "reason": "Auto snapshot after confirm: use PUT when updating supplier contract"
+    },
+    "server/index.cjs": {
+      "timestamp": "2026-04-12T20:06:08",
+      "feature": "fix-template-upload-ebusy",
+      "hash": "ff74df8db0675e3e55662a56cf00ca49953784ccf7d969eedb19d96f235ca1f2",
+      "path": "C:/handv/server/index.cjs",
+      "source": "snapshot",
+      "reason": "checkpoint before changing template upload storage strategy"
+    },
+    "src/main.jsx": {
+      "timestamp": "2026-04-12T16:49:52",
+      "feature": "remove-alert-wrapper",
+      "hash": "ff988e37d5a439b8d45e071069ef3989f183fe10594201e3ee9615483cc27f36",
+      "path": "C:/handv/src/main.jsx",
+      "source": "snapshot",
+      "reason": "checkpoint after removing global alert interceptor"
+    }
+  },
+  "protected_features": {
+    "src/pages/Settings.jsx": [
+      "Settings password submit button visibility"
+    ],
+    "src/pages/Projects.jsx": [
+      "project modal sticky action visibility on small screens",
+      "contract form baseline",
+      "contract ui repair baseline",
+      "contract modal text repair baseline",
+      "contracts-garbled-fix",
+      "contract-modal-garbled-fix",
+      "contract-modal-unicode-placeholder-fix",
+      "contract-modal-layout-tweak-v2",
+      "supplier-bank-split-and-material-mojibake-fix",
+      "sign-date-picker-restore",
+      "materials-and-contract-fixes",
+      "material-supplier-select",
+      "fix-material-save-garbled-text",
+      "materials-ui-data-fix",
+      "pre-fix",
+      "persist-supplier-contact-fields"
+    ],
+    "src/pages/Stats.jsx": [
+      "restore byPersonTotals aggregation in admin stats"
+    ],
+    "src/store/http.js": [
+      "material-contract-api-fix"
+    ],
+    "src/store/projects.js": [
+      "material-contract-api-fix"
+    ],
+    "server/index.cjs": [
+      "materials-db-contract-fix",
+      "fix-contract-update-sql",
+      "pre-fix",
+      "pre-restore",
+      "pre-export-fix",
+      "contract-export-and-update-fix",
+      "contract-export-fallback",
+      "persist-supplier-contact-fields",
+      "fix-template-upload-404",
+      "export-template-fallback-replacer",
+      "fix-template-upload-ebusy"
+    ],
+    "src/main.jsx": [
+      "remove-alert-wrapper"
+    ]
+  },
+  "index_state": {
+    "src/pages/ProjectMaterials.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:44",
+      "file_hash": "a377f83528cc63eb173a1ad8a4ec3ca49eab7bcb26bb7f4cf0270a410beade1c",
+      "line_count": 248,
+      "entry_signatures": [
+        {
+          "feature": "Project materials page bootstrap",
+          "line": 5,
+          "signature": "be5e7c2aa66d"
+        },
+        {
+          "feature": "Materials load and edit mode handlers",
+          "line": 21,
+          "signature": "fb0cc622c6e0"
+        },
+        {
+          "feature": "Save cancel and delete workflows",
+          "line": 75,
+          "signature": "fb81be03ae03"
+        },
+        {
+          "feature": "Material list and editor rendering",
+          "line": 129,
+          "signature": "c325816e65ff"
+        }
+      ]
+    },
+    "scripts/codeguard-cli.py": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:30",
+      "file_hash": "d08246480cd8c1350852a00cec8ab1382fddad853fdb0744a45915626f9fd395",
+      "line_count": 319,
+      "entry_signatures": [
+        {
+          "feature": "Compatibility reason helper",
+          "line": 49,
+          "signature": "34f2cce0576b"
+        },
+        {
+          "feature": "Status command and JSON formatting",
+          "line": 56,
+          "signature": "094ae348380a"
+        },
+        {
+          "feature": "Index entry apply workflow",
+          "line": 60,
+          "signature": "ff600b84448d"
+        },
+        {
+          "feature": "Confirm command compatibility mode",
+          "line": 98,
+          "signature": "e30348c2c073"
+        },
+        {
+          "feature": "CLI parser and subcommands",
+          "line": 118,
+          "signature": "c38d0a16b4bb"
+        },
+        {
+          "feature": "Main dispatch and exit code mapping",
+          "line": 244,
+          "signature": "987f4ac1f080"
+        }
+      ]
+    },
+    "scripts/generate_word_doc.py": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:31",
+      "file_hash": "296b6987548415966c97dbe4f1dc156bd7a41586f8abfb7a969b679746e525b3",
+      "line_count": 591,
+      "entry_signatures": [
+        {
+          "feature": "Cell and text style utilities",
+          "line": 13,
+          "signature": "b4db1289d8d0"
+        },
+        {
+          "feature": "SRS document assembly orchestration",
+          "line": 33,
+          "signature": "1ad92a8b4fc7"
+        },
+        {
+          "feature": "System overview section builder",
+          "line": 145,
+          "signature": "f69418ffbb79"
+        },
+        {
+          "feature": "Roles and permissions section",
+          "line": 179,
+          "signature": "5b9a4f8ca124"
+        },
+        {
+          "feature": "Functional requirements section",
+          "line": 225,
+          "signature": "9256455318b8"
+        },
+        {
+          "feature": "API specification section",
+          "line": 373,
+          "signature": "13526690402c"
+        },
+        {
+          "feature": "Version history and appendix sections",
+          "line": 496,
+          "signature": "585e6a0bdb21"
+        },
+        {
+          "feature": "Program entrypoint and execution",
+          "line": 570,
+          "signature": "9509d05d800d"
+        }
+      ]
+    },
+    "scripts/maintenance/add_bills_and_payments.cjs": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:32",
+      "file_hash": "8940f4ae9d16580b2eaba36b34a3681f6e3e8d56312eac2e598e4d2649915aa9",
+      "line_count": 266,
+      "entry_signatures": [
+        {
+          "feature": "SQLite write helper",
+          "line": 8,
+          "signature": "3d8eabfd7600"
+        },
+        {
+          "feature": "SQLite query helper",
+          "line": 17,
+          "signature": "54e6934ffbdf"
+        },
+        {
+          "feature": "Identifier generation helper",
+          "line": 26,
+          "signature": "d770597da992"
+        },
+        {
+          "feature": "Bills and payments seed routine",
+          "line": 30,
+          "signature": "3c28cadbbb04"
+        }
+      ]
+    },
+    "scripts/maintenance/add_test_materials.cjs": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:34",
+      "file_hash": "3d4e99c041ef070c73139fb604f5020d7539a5b406c3c72c7dca8c99563a5ec8",
+      "line_count": 201,
+      "entry_signatures": [
+        {
+          "feature": "SQLite write helper",
+          "line": 8,
+          "signature": "3d8eabfd7600"
+        },
+        {
+          "feature": "SQLite query helper",
+          "line": 17,
+          "signature": "54e6934ffbdf"
+        },
+        {
+          "feature": "Test materials seed routine",
+          "line": 26,
+          "signature": "6c1b114bc18d"
+        }
+      ]
+    },
+    "scripts/maintenance/create_projects.cjs": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:35",
+      "file_hash": "da3ae65ea293fba3feef6181effe3547315dc17c4417b689781185f7ed5abddf",
+      "line_count": 439,
+      "entry_signatures": [
+        {
+          "feature": "SQLite write helper",
+          "line": 8,
+          "signature": "3d8eabfd7600"
+        },
+        {
+          "feature": "SQLite query helper",
+          "line": 17,
+          "signature": "54e6934ffbdf"
+        },
+        {
+          "feature": "Identifier generation helper",
+          "line": 26,
+          "signature": "d770597da992"
+        },
+        {
+          "feature": "Project seeding workflow",
+          "line": 30,
+          "signature": "e9216d286a81"
+        }
+      ]
+    },
+    "server/index.cjs": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:36",
+      "file_hash": "0b6e9306d5dccac3a72205ccc3bbdc67439088ce262809ce0436f1ef13147d43",
+      "line_count": 2044,
+      "entry_signatures": [
+        {
+          "feature": "App bootstrap and middleware setup",
+          "line": 15,
+          "signature": "6bb74df5ea45"
+        },
+        {
+          "feature": "Database helpers and bill normalization",
+          "line": 40,
+          "signature": "9e4591a28782"
+        },
+        {
+          "feature": "Schema bootstrap and initial seed",
+          "line": 84,
+          "signature": "33e7a8ee6aec"
+        },
+        {
+          "feature": "Authentication and profile endpoints",
+          "line": 324,
+          "signature": "698c71cc16e7"
+        },
+        {
+          "feature": "User and company setting endpoints",
+          "line": 497,
+          "signature": "25f343d3c2c6"
+        },
+        {
+          "feature": "Bill workflow endpoints submit approve reject",
+          "line": 789,
+          "signature": "ba8a6c1ea87f"
+        },
+        {
+          "feature": "Reason hierarchy CRUD endpoints",
+          "line": 965,
+          "signature": "7c5096a204f9"
+        },
+        {
+          "feature": "Project and attachment endpoints",
+          "line": 1316,
+          "signature": "19880e159546"
+        },
+        {
+          "feature": "Supplier and contract endpoints",
+          "line": 1475,
+          "signature": "cb1ea0a138ab"
+        },
+        {
+          "feature": "Project materials import export endpoints",
+          "line": 1697,
+          "signature": "4839cbbe9a7b"
+        },
+        {
+          "feature": "Supplier products and payments endpoints",
+          "line": 1892,
+          "signature": "fe3d5d458d16"
+        },
+        {
+          "feature": "Supplier evaluation endpoints and server startup",
+          "line": 1991,
+          "signature": "c7996c815a5f"
+        }
+      ]
+    },
+    "src/pages/Admin.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:37",
+      "file_hash": "f15db7bf99db2e6de9cde3b9c4d75a41ead9d5e8d1a8823b4924b802020df4b7",
+      "line_count": 592,
+      "entry_signatures": [
+        {
+          "feature": "Admin page state bootstrap and initial load",
+          "line": 10,
+          "signature": "dbb5724b24f6"
+        },
+        {
+          "feature": "Initial data fetch effect",
+          "line": 23,
+          "signature": "d159defd57a3"
+        },
+        {
+          "feature": "User password reset action",
+          "line": 59,
+          "signature": "793fe6367d96"
+        },
+        {
+          "feature": "User save and sync action",
+          "line": 74,
+          "signature": "e67c1ece4a4c"
+        },
+        {
+          "feature": "Company settings save actions",
+          "line": 130,
+          "signature": "88cfd49ba9d6"
+        },
+        {
+          "feature": "User creation action and form state",
+          "line": 164,
+          "signature": "ad4bc46fbd7b"
+        },
+        {
+          "feature": "Admin management page rendering",
+          "line": 227,
+          "signature": "f972245cab43"
+        }
+      ]
+    },
+    "src/pages/BillDetail.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:39",
+      "file_hash": "9c560ae59a313504f862639f6b574f56e837fcda421d29ece9aa81a66c11a2c9",
+      "line_count": 317,
+      "entry_signatures": [
+        {
+          "feature": "Bill detail page state bootstrap",
+          "line": 7,
+          "signature": "4ab99dd8774a"
+        },
+        {
+          "feature": "Bill and reason data loading effects",
+          "line": 35,
+          "signature": "05b544da57be"
+        },
+        {
+          "feature": "Approval action workflow",
+          "line": 107,
+          "signature": "65844ae29e2b"
+        },
+        {
+          "feature": "Reject and resubmit workflows",
+          "line": 135,
+          "signature": "511bfe560834"
+        },
+        {
+          "feature": "Readonly and edit-mode UI rendering",
+          "line": 177,
+          "signature": "6626d52c8c21"
+        }
+      ]
+    },
+    "src/pages/HierarchyEditor.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:40",
+      "file_hash": "a9a56bc7c4bffa22e60733acfa63db0708890ebf5d16258cf5e6b4e5cc2a1d21",
+      "line_count": 234,
+      "entry_signatures": [
+        {
+          "feature": "Hierarchy editor state bootstrap",
+          "line": 10,
+          "signature": "5d86395c273c"
+        },
+        {
+          "feature": "Node add remove and text edit actions",
+          "line": 42,
+          "signature": "27d09f7bd30e"
+        },
+        {
+          "feature": "Reason hierarchy load effect",
+          "line": 132,
+          "signature": "a03d774ad640"
+        },
+        {
+          "feature": "Persist hierarchy to server action",
+          "line": 150,
+          "signature": "354d2378b709"
+        },
+        {
+          "feature": "Tree editor rendering and controls",
+          "line": 176,
+          "signature": "cae93f01f493"
+        }
+      ]
+    },
+    "src/pages/Home.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:41",
+      "file_hash": "a447ca4ebce621f8d6f8712f8a0e6ffd1e615e98726b46dca25b2aa2e86df2c6",
+      "line_count": 559,
+      "entry_signatures": [
+        {
+          "feature": "Home page state bootstrap and filters",
+          "line": 27,
+          "signature": "a147683d9412"
+        },
+        {
+          "feature": "Bill list fetch effect and normalization",
+          "line": 50,
+          "signature": "a03d774ad640"
+        },
+        {
+          "feature": "Computed filtered bill collections",
+          "line": 132,
+          "signature": "1d57e9eac1f8"
+        },
+        {
+          "feature": "Delete bill workflow",
+          "line": 148,
+          "signature": "59bc44cf224c"
+        },
+        {
+          "feature": "Role-specific todo and list rendering",
+          "line": 186,
+          "signature": "8ab66a168529"
+        }
+      ]
+    },
+    "src/pages/NewBill.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:43",
+      "file_hash": "8d91768df7bf8340ca6116ed26d56bfafece2cd5cd684157b968e6e07841dbc7",
+      "line_count": 470,
+      "entry_signatures": [
+        {
+          "feature": "New bill form state bootstrap",
+          "line": 22,
+          "signature": "ea1cb23e1d35"
+        },
+        {
+          "feature": "Reasons and approval order load effects",
+          "line": 45,
+          "signature": "a03d774ad640"
+        },
+        {
+          "feature": "Material row and file mutation handlers",
+          "line": 96,
+          "signature": "97cc563ac6cb"
+        },
+        {
+          "feature": "Bill submit and upload workflow",
+          "line": 150,
+          "signature": "4d14216ef7c9"
+        },
+        {
+          "feature": "Form rendering and validation hints",
+          "line": 206,
+          "signature": "dd82e0ce34d6"
+        }
+      ]
+    },
+    "src/pages/Projects.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-10T21:33:30",
+      "file_hash": "37b44f2036a654f50788110fe6d74ff634a9432227ad2e4303c717d19f7e53d7",
+      "line_count": 1876,
+      "entry_signatures": [
+        {
+          "feature": "loadProjects",
+          "line": 166,
+          "signature": "3fc05e0bbdbe"
+        },
+        {
+          "feature": "handleContractTemplateUpload",
+          "line": 213,
+          "signature": "e34e5705cb8b"
+        },
+        {
+          "feature": "handleDelete",
+          "line": 291,
+          "signature": "bfc2f96fbc68"
+        },
+        {
+          "feature": "handleMaterialDelete",
+          "line": 381,
+          "signature": "b3a0bcdf884d"
+        },
+        {
+          "feature": "handleContractEdit",
+          "line": 458,
+          "signature": "cf43ba99ee47"
+        },
+        {
+          "feature": "addProjectItem",
+          "line": 556,
+          "signature": "fa6e752d197f"
+        },
+        {
+          "feature": "selectMaterialSuggestion",
+          "line": 629,
+          "signature": "6aab834e8232"
+        },
+        {
+          "feature": "getStatusBadge",
+          "line": 676,
+          "signature": "7e35f5c9a807"
+        }
+      ]
+    },
+    "src/pages/ReasonManager.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:47",
+      "file_hash": "5bea46e2efacc91f37bb421886a978ece23a6824491584f921ce9eff1fc62499",
+      "line_count": 331,
+      "entry_signatures": [
+        {
+          "feature": "Reason manager state bootstrap",
+          "line": 14,
+          "signature": "4a31be892bd0"
+        },
+        {
+          "feature": "Initial refresh effect and load routine",
+          "line": 54,
+          "signature": "40ea4e9b95f0"
+        },
+        {
+          "feature": "Category create edit toggle workflows",
+          "line": 58,
+          "signature": "77d91d313c3e"
+        },
+        {
+          "feature": "Reason item create edit toggle workflows",
+          "line": 121,
+          "signature": "6e798b394389"
+        },
+        {
+          "feature": "Bulk save and reset workflow",
+          "line": 172,
+          "signature": "5a54fad1b2cb"
+        },
+        {
+          "feature": "Hierarchy editor rendering and controls",
+          "line": 196,
+          "signature": "40b3204e147c"
+        }
+      ]
+    },
+    "src/pages/Stats.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:48",
+      "file_hash": "e256eaf7367e17b55ace0fdd890e497c7deddad556e2f73d8c3ccec2bca63f5b",
+      "line_count": 352,
+      "entry_signatures": [
+        {
+          "feature": "Stats page state bootstrap",
+          "line": 6,
+          "signature": "26c89d7d77cc"
+        },
+        {
+          "feature": "Data load effect and filters",
+          "line": 28,
+          "signature": "68dacf009a19"
+        },
+        {
+          "feature": "Monthly and category aggregation memos",
+          "line": 47,
+          "signature": "4053a5b512ef"
+        },
+        {
+          "feature": "Engineering logistics aggregation and export",
+          "line": 76,
+          "signature": "88ce1b894e50"
+        },
+        {
+          "feature": "Chart cards and table rendering",
+          "line": 155,
+          "signature": "a0037b68e11a"
+        }
+      ]
+    },
+    "src/pages/SupplierContracts.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:49",
+      "file_hash": "f0f90adad3b10fed6f05a3772fe2955c1d5a9e333b09290c87954a669ecc1c15",
+      "line_count": 464,
+      "entry_signatures": [
+        {
+          "feature": "Supplier contracts page bootstrap",
+          "line": 5,
+          "signature": "e4371d3edd55"
+        },
+        {
+          "feature": "Contracts load and permission-gated fetch",
+          "line": 34,
+          "signature": "a024355a62ad"
+        },
+        {
+          "feature": "Create update submit workflow",
+          "line": 76,
+          "signature": "7a44e1e11e95"
+        },
+        {
+          "feature": "Edit and delete workflow",
+          "line": 102,
+          "signature": "26d5b3c14f0d"
+        },
+        {
+          "feature": "List table and contract form rendering",
+          "line": 156,
+          "signature": "f851b7aa4b67"
+        }
+      ]
+    },
+    "src/pages/SupplierLibrary.jsx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-09T09:45:51",
+      "file_hash": "85b136bb45eb59d759f19f2e83e0775d0eb51816ce5003f279a6f1d8eab9f69d",
+      "line_count": 496,
+      "entry_signatures": [
+        {
+          "feature": "Supplier API helper functions",
+          "line": 19,
+          "signature": "c92af6b7b9e1"
+        },
+        {
+          "feature": "Supplier form component and submit flow",
+          "line": 59,
+          "signature": "17701ef07832"
+        },
+        {
+          "feature": "Supplier library state bootstrap",
+          "line": 233,
+          "signature": "6b8fa9433914"
+        },
+        {
+          "feature": "Data load and supplier CRUD handlers",
+          "line": 243,
+          "signature": "ef6289964a09"
+        },
+        {
+          "feature": "Supplier detail drawer and list rendering",
+          "line": 297,
+          "signature": "7fd71cd0c850"
+        }
+      ]
+    }
+  }
+}

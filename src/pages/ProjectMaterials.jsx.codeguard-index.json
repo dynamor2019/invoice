@@ -1,0 +1,24 @@
+{
+  "file": "src/pages/ProjectMaterials.jsx",
+  "updated_at": "2026-04-09T09:45:44",
+  "line_count": 248,
+  "file_hash": "a377f83528cc63eb173a1ad8a4ec3ca49eab7bcb26bb7f4cf0270a410beade1c",
+  "entries": [
+    {
+      "feature": "Project materials page bootstrap",
+      "line": 5
+    },
+    {
+      "feature": "Materials load and edit mode handlers",
+      "line": 21
+    },
+    {
+      "feature": "Save cancel and delete workflows",
+      "line": 75
+    },
+    {
+      "feature": "Material list and editor rendering",
+      "line": 129
+    }
+  ]
+}

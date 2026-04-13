@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/NewBill.jsx",
+  "updated_at": "2026-04-09T09:45:43",
+  "line_count": 470,
+  "file_hash": "8d91768df7bf8340ca6116ed26d56bfafece2cd5cd684157b968e6e07841dbc7",
+  "entries": [
+    {
+      "feature": "New bill form state bootstrap",
+      "line": 22
+    },
+    {
+      "feature": "Reasons and approval order load effects",
+      "line": 45
+    },
+    {
+      "feature": "Material row and file mutation handlers",
+      "line": 96
+    },
+    {
+      "feature": "Bill submit and upload workflow",
+      "line": 150
+    },
+    {
+      "feature": "Form rendering and validation hints",
+      "line": 206
+    }
+  ]
+}

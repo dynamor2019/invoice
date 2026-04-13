@@ -1,4 +1,5 @@
-﻿import { Link, useNavigate } from 'react-router-dom'
+import { getReasons } from '../store/reasons'
+import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getCurrentUser } from '../store/users'
 import { seedBills, getTodosByRole, getBills, deleteBill, approveBill } from '../store/bills'
@@ -8,11 +9,27 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Drawer from '../components/Drawer'
 import { getApiBase, getApiHost } from '../store/api'
 import { getApprovalThresholds } from '../store/settings'
+import { 
+  Home as HomeIcon, 
+  Assignment, 
+  CheckCircle, 
+  Schedule, 
+  Search,
+  Add,
+  Visibility,
+  Delete,
+  AttachMoney,
+  Person,
+  CalendarToday,
+  TrendingUp
+} from '@mui/icons-material'
 
 export default function Home() {
   const user = getCurrentUser()
   const [todos, setTodos] = useState([])
   const [mine, setMine] = useState([])
+  const [allBills, setAllBills] = useState([]) // 新增：所有票据（用于管理层统计）
+  const [reasonItems, setReasonItems] = useState([]) // 新增：报销事由项目（用于统计）
   const [search, setSearch] = useState('')
   const [mineFilter, setMineFilter] = useState('all')
   const [openIds, setOpenIds] = useState({})
@@ -24,105 +41,98 @@ export default function Home() {
     const key = `fa_hidden_${u?.id || 'unknown'}`
     try { return JSON.parse(localStorage.getItem(key)) || [] } catch { return [] }
   })
-  // 首页不再使用消息状态
+
+  // 状态统计
+  const todoCount = todos.length
+  const myInProgressCount = mine.filter(b => b.status === 'pending').length
+  const myCompletedCount = mine.filter(b => ['approved', 'archived'].includes(b.status)).length
 
   useEffect(() => {
     (async () => {
-      await seedBills()
-      const user = getCurrentUser()
-      if (user) {
-        let todosList = []
+      try {
+        await seedBills()
+        
+        // 强制刷新当前用户信息（确保角色最新）
         try {
-          todosList = await getTodosByRole(user.role)
-        } catch {}
-        const all = await getBills()
-        // Fallback: if server endpoint missing or returns error/empty unexpectedly, compute on client
-        if (!Array.isArray(todosList) || (todosList.length === 0 && Array.isArray(all) && all.length > 0)) {
-          const role = user.role
-          const computed = (all || []).filter(b => {
-            if (!b || b.status !== 'pending') return false
-            let steps = b.steps
-            if (typeof steps === 'string') {
-              try { steps = JSON.parse(steps) } catch { steps = [] }
+          const me = await http.get('/me').catch(() => null)
+          if (me && me.role) {
+            const current = getCurrentUser()
+            if (current && current.role !== me.role) {
+              console.log('Role mismatch, updating...', current.role, '->', me.role)
+              const newUser = { ...current, role: me.role, id: me.id || current.id }
+              setCurrentUser(newUser)
+              // 触发重载
+              window.location.reload()
+              return
             }
-            if (!Array.isArray(steps)) steps = []
-            const idx = Number(b.currentStepIndex) || 0
-            return steps[idx] === role
-          })
-          setTodos(computed)
-        } else {
-          setTodos(todosList)
+          }
+        } catch (e) {
+          console.warn('Refresh user info failed', e)
         }
-        // mine list
-        setMine(all.filter(b => b.createdBy === user.id))
-        try {
-          const users = await getUsers()
-          const mapRole = {}
-          const mapId = {}
-          const labelMap = {}
-          for (const u of users) { mapRole[u.role] = u.name; mapId[u.id] = u.name; labelMap[u.role] = `${u.name}(${u.id})` }
-          setRoleNameMap(mapRole)
-          setUserNameMap(mapId)
-          setRoleAccountLabelMap(labelMap)
-        } catch {}
+
+        const user = getCurrentUser()
+        if (user) {
+          let todosList = []
+          try {
+            todosList = await getTodosByRole(user.role)
+          } catch (e) {
+            console.warn('Load todos failed', e)
+          }
+          let all = []
+          try {
+            all = await getBills()
+          } catch (e) {
+            console.error('Load bills failed', e)
+          }
+          
+          if (!Array.isArray(todosList) || (todosList.length === 0 && Array.isArray(all) && all.length > 0)) {
+            const role = user.role
+            const computed = (all || []).filter(b => {
+              if (!b || b.status !== 'pending') return false
+              let steps = b.steps
+              if (typeof steps === 'string') {
+                try { steps = JSON.parse(steps) } catch { steps = [] }
+              }
+              if (!Array.isArray(steps)) steps = []
+              const idx = Number(b.currentStepIndex) || 0
+              return steps[idx] === role
+            })
+            todosList = computed
+          }
+          setTodos(todosList || [])
+          setAllBills(all || [])
+          setMine((all || []).filter(b => (b.createdBy === user.id) || (b.submitterId === user.id)))
+
+          // 加载报销事由用于统计
+          try {
+            const cats = await getReasons()
+            const items = []
+            if (Array.isArray(cats)) {
+              cats.forEach(c => {
+                if (Array.isArray(c.items)) {
+                  c.items.forEach(i => items.push({ ...i, parentCategory: c.name }))
+                }
+              })
+            }
+            setReasonItems(items)
+          } catch (e) {
+            console.warn('Load reasons failed', e)
+          }
+        }
+      } catch (err) {
+        console.error('Home init failed', err)
       }
     })()
   }, [])
 
-  // 角色显示为形式名：approver1/2/3 显示为“一级/二级/三级审批”，会计/管理员分别显示对应中文
-  const displayRoleLabel = (role) => {
-    if (!role) return ''
-    if (role === 'approver1') return '一级审批'
-    if (role === 'approver2') return '二级审批'
-    if (role === 'approver3') return '三级审批'
-    if (role === 'accountant') return '会计'
-    if (role === 'admin') return '管理员'
-    return roleNameMap[role] || role
-  }
-
-  // 免审抽屉数据：根据审批顺序与阈值计算（首页展示）
-  useEffect(() => {
-    (async () => {
-      const u = getCurrentUser()
-      if (!u) return
-      try {
-        const [order, thresholds, all] = await Promise.all([
-          getApprovalOrder().catch(() => []),
-          getApprovalThresholds().catch(() => ({ approver1:0, approver2:0, approver3:0 })),
-          getBills().catch(() => [])
-        ])
-        const baseHasRole = Array.isArray(order) && order.includes(u.role)
-        setIsApprover(!!baseHasRole)
-        if (baseHasRole) {
-          const limit = Number(thresholds[u.role]) || 0
-          const skippedList = (all || []).filter(b => {
-            if (b.status !== 'pending') return false
-            const steps = Array.isArray(b.steps) ? b.steps : []
-            // 若流程中不包含该审批角色，且存在阈值配置，则视为因阈值被跳过
-            return limit > 0 && !steps.includes(u.role)
-          })
-          setSkipped(skippedList)
-        } else {
-          setSkipped([])
-        }
-      } catch {}
-    })()
-  }, [])
-
-  // 仅在 effect 中获取当前用户用于初始化
-
-  const todoCount = todos.length
-  const myInProgressCount = mine.filter(b => b.status === 'pending').length
-  const myCompletedCount = mine.filter(b => b.status === 'approved' || b.status === 'archived').length
-
+  // 搜索过滤
   const matches = (b) => {
     const q = search.trim().toLowerCase()
     if (!q) return true
     return (
-      b.title.toLowerCase().includes(q) ||
-      b.category.toLowerCase().includes(q) ||
-      String(b.id).includes(q) ||
-      String(b.amount).includes(q)
+      (b.title || '').toLowerCase().includes(q) ||
+      (b.category || '').toLowerCase().includes(q) ||
+      (b.submitterName || '').toLowerCase().includes(q)
     )
   }
 
@@ -135,472 +145,415 @@ export default function Home() {
     return matches(b)
   })
 
-  const statusText = (s) => {
-    if (s === 'pending') return '审批中'
-    if (s === 'approved') return '已通过'
-    if (s === 'archived') return '已归档'
-    if (s === 'rejected') return '已拒绝'
-    if (s === 'rejected-modified') return '已拒绝-已修改'
-    return s
-  }
-
-  const [openGroups, setOpenGroups] = useState({})
-  const toggleOpen = (id) => setOpenIds(prev => ({ ...prev, [id]: !prev[id] }))
-  const toggleGroup = (key) => setOpenGroups(prev => ({ ...prev, [key]: !(prev[key] ?? true) }))
-
-  // 抽屉状态
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [drawerBill, setDrawerBill] = useState(null)
-  const navigate = useNavigate()
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
-  const [olderOpen, setOlderOpen] = useState(false)
-  // 免审抽屉（审查员视角）
-  const [skippedOpen, setSkippedOpen] = useState(false)
-  const [skipped, setSkipped] = useState([])
-  const [isApprover, setIsApprover] = useState(false)
-  // 图片预览
-  const [viewerSrc, setViewerSrc] = useState(null)
-
   const onDeleteMyBill = async (b) => {
     if (!b) return
     try {
       await deleteBill(b.id)
-      setMine(prev => prev.filter(x => x.id !== b.id))
-      setConfirmDeleteId(null)
-      alert('删除成功')
+      const all = await getBills()
+      setMine((all || []).filter(x => x.submitterId === user.id))
     } catch (e) {
       alert(e?.message || '删除失败')
     }
   }
 
-  // 批量审批进度（不显式“批量审批按钮”，由标题栏小开关触发）
-  const [batchProgress, setBatchProgress] = useState({ /* key: { running, total, done, failed } */ })
-  const startBatch = async (key) => {
-    const list = (groupEntries.find(([k]) => k === key)?.[1]) || []
-    const total = list.length
-    setBatchProgress(prev => ({ ...prev, [key]: { running: true, total, done: 0, failed: 0 } }))
-    try {
-      const u = getCurrentUser()
-      for (const b of list) {
-        const steps = Array.isArray(b.steps) ? b.steps : []
-        const idx = Number(b.currentStepIndex) || 0
-        if (b.status === 'pending' && steps[idx] === u.role) {
-          try {
-            await approveBill(b.id, u.role)
-            setBatchProgress(prev => ({ ...prev, [key]: { ...prev[key], done: prev[key].done + 1 } }))
-          } catch {
-            setBatchProgress(prev => ({ ...prev, [key]: { ...prev[key], failed: prev[key].failed + 1 } }))
-          }
-        } else {
-          // 不可审批时当作失败计入
-          setBatchProgress(prev => ({ ...prev, [key]: { ...prev[key], failed: prev[key].failed + 1 } }))
-        }
-      }
-      // 刷新列表
-      const cu = getCurrentUser()
-      const todosList = await getTodosByRole(cu.role)
-      setTodos(todosList)
-      const all = await getBills()
-      setMine(all.filter(x => x.createdBy === cu.id))
-    } finally {
-      setBatchProgress(prev => ({ ...prev, [key]: { ...prev[key], running: false } }))
-      alert('本批次审批已完成（含不可审批的项）')
+  const getRoleDisplayName = (role) => {
+    const roleMap = {
+      'admin': '管理员',
+      'chairman': '董事长',
+      'vice_chairman': '副董事长',
+      'gm': '总经理',
+      'project_manager': '项目经理',
+      'procurement_manager': '采购经理',
+      'cost_manager': '造价经理',
+      'finance_manager': '财务经理',
+      'approver1': '一级审批',
+      'approver2': '二级审批',
+      'approver3': '三级审批',
+      'staff': '员工',
+      'accountant': '会计'
     }
+    return roleMap[role] || role
   }
 
-  const formatMinute = (d) => {
-    const pad = (n) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-  const getCreateDate = (b) => {
-    let hist = Array.isArray(b.history) ? b.history : []
-    if (!Array.isArray(hist)) {
-      try { hist = JSON.parse(b.history || '[]') } catch { hist = [] }
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      'pending': { text: '待审批', class: 'badge-warning' },
+      'approved': { text: '已通过', class: 'badge-success' },
+      'rejected': { text: '已拒绝', class: 'badge-danger' },
+      'archived': { text: '已归档', class: 'badge-info' }
     }
-    const hc = Array.isArray(hist) ? hist.find(h => h && h.action === 'create' && h.time) : null
-    if (hc?.time) {
-      const d = new Date(hc.time)
-      if (!isNaN(d.valueOf())) return d
-    }
-    let imgs = Array.isArray(b.images) ? b.images : []
-    if (!Array.isArray(imgs)) {
-      try { imgs = JSON.parse(b.images || '[]') } catch { imgs = [] }
-    }
-    if (imgs.length > 0) {
-      const m = String(imgs[0]).match(/\/(\d+)-/)
-      if (m) {
-        const t = Number(m[1])
-        const d = new Date(t)
-        if (!isNaN(d.valueOf())) return d
-      }
-    }
-    return null
-  }
-  const groupsMap = {}
-  for (const b of filteredTodos) {
-    const d = getCreateDate(b)
-    const minuteStr = d ? formatMinute(d) : '未知时间'
-    const key = `${b.createdBy}|${minuteStr}`
-    if (!groupsMap[key]) groupsMap[key] = []
-    groupsMap[key].push(b)
-  }
-  const groupEntries = Object.entries(groupsMap)
-
-  // 新增：时间编号（YY-MM-DD-HH-MM）用于显示
-  const displayNoOf = (b) => {
-    try {
-      let hist = Array.isArray(b.history) ? b.history : []
-      if (!Array.isArray(hist)) { try { hist = JSON.parse(b.history || '[]') } catch { hist = [] } }
-      const t = hist.find(h => h && h.action === 'create' && h.time)?.time
-      const pad = (n) => String(n).padStart(2, '0')
-      if (t) {
-        const d = new Date(t)
-        if (!isNaN(d.valueOf())) {
-          const yy = String(d.getFullYear()).slice(-2)
-          const mm = pad(d.getMonth() + 1)
-          const dd = pad(d.getDate())
-          const hh = pad(d.getHours())
-          const mi = pad(d.getMinutes())
-          return `${yy}-${mm}-${dd}-${hh}-${mi}`
-        }
-      }
-      if (b.date) {
-        const bd = new Date(b.date)
-        const yy = String(bd.getFullYear()).slice(-2)
-        const mm = pad(bd.getMonth() + 1)
-        const dd = pad(bd.getDate())
-        return `${yy}-${mm}-${dd}-00-00`
-      }
-      return '-'
-    } catch { return '-' }
+    const config = statusMap[status] || { text: status, class: 'badge-info' }
+    return (
+      <span className={`modern-badge ${config.class}`}>
+        {config.text}
+      </span>
+    )
   }
 
-  // 按“本周”和“更早”拆分我发起的票据（支持时间基础切换）
-  const [timeBasis, setTimeBasis] = useState('submitted') // 'submitted' | 'bill'
-  const WEEK_MS = 7 * 24 * 60 * 60 * 1000
-  const nowMs = Date.now()
-  const getBillDate = (b) => {
-    if (b?.date) {
-      const d = new Date(b.date)
-      if (!isNaN(d.valueOf())) return d
-    }
-    return null
-  }
-  const getBasisDate = (b) => {
-    return timeBasis === 'submitted'
-      ? (getCreateDate(b) || getBillDate(b))
-      : (getBillDate(b) || getCreateDate(b))
-  }
-  const isInWeek = (b) => {
-    const d = getBasisDate(b)
-    const t = d ? d.getTime() : 0
-    return t > 0 && (nowMs - t) <= WEEK_MS
-  }
-  const sortByBasisDesc = (a, b) => {
-    const ta = getBasisDate(a)?.getTime() || 0
-    const tb = getBasisDate(b)?.getTime() || 0
-    return tb - ta
-  }
-  const recentMine = [...filteredMine.filter(isInWeek)].sort(sortByBasisDesc)
-  const olderMine = [...filteredMine.filter(b => !isInWeek(b))].sort(sortByBasisDesc)
-
-  // 密码修改功能迁移至设置页面
-
-  const statusStyles = {
-    '待办': { card: 'bg-amber-50 border border-amber-200 shadow-sm border-l-4 border-amber-400', title: 'text-amber-700', value: 'text-amber-600' },
-    '进行中': { card: 'bg-blue-50 border border-blue-200 shadow-sm border-l-4 border-blue-400', title: 'text-blue-700', value: 'text-blue-600' },
-    '已完成': { card: 'bg-green-50 border border-green-200 shadow-sm border-l-4 border-green-400', title: 'text-green-700', value: 'text-green-600' },
-  }
-
-return (
-  <div className="space-y-[2px]">
-    {/* 蓝色科技感头部 */}
-    <div className="rounded-xl overflow-hidden">
-      <div className="bg-gradient-to-br from-primary to-primary-dark text-white p-5">
-        <div className="flex items-center justify-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-label="工作台">
-            <path d="M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h5v8H3v-8zm7 0h11v8H10v-8z"/>
-          </svg>
-          <p className="text-xs opacity-90">快捷查看审批与票据进度</p>
-        </div>
-      </div>
-      {/* 状态卡片 */}
-      <div className="grid grid-cols-3 gap-[2px] bg-white p-3">
-        {[
-          { title: '待办', value: todoCount },
-          { title: '进行中', value: myInProgressCount },
-          { title: '已完成', value: myCompletedCount },
-        ].map((s) => (
-          <div key={s.title} className={"rounded-lg p-3 " + (statusStyles[s.title]?.card || 'border border-primary/20')}>
-            <div className={"text-xs " + (statusStyles[s.title]?.title || 'text-gray-600')}>{s.title}</div>
-            <div className={"text-lg font-semibold mt-1 " + (statusStyles[s.title]?.value || 'text-primary')}>{s.value}</div>
+  return (
+    <div className="min-h-screen p-3 md:p-4 space-y-4 md:space-y-6 pb-20">
+      {/* 现代化头部 */}
+      <div className="modern-card p-4 md:p-6 animate-fade-in-up">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <HomeIcon className="text-white" sx={{ fontSize: { xs: 20, md: 24 } }} />
+            </div>
+            <div>
+              <h1 className="text-lg md:text-2xl font-bold text-gray-800">报销工作台</h1>
+              <p className="text-sm md:text-base text-gray-600">欢迎回来，{user?.name} ({getRoleDisplayName(user?.role)})</p>
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
-
-      {/* 密码修改入口已迁移至“设置”页面 */}
-
-      {/* 搜索与筛选 */}
-      <section className="bg-white rounded-lg border p-3">
-        <div className="grid grid-cols-2 gap-[2px]">
-          <input
-            value={search}
-            onChange={e=>setSearch(e.target.value)}
-            className="rounded border px-3 py-2 text-sm"
-            placeholder="搜索票据（事由/类别/编号/金额）"
-          />
-          <select value={mineFilter} onChange={e=>setMineFilter(e.target.value)} className="rounded border px-3 py-2 text-sm">
-            <option value="all">我发起的：全部</option>
-            <option value="pending">我发起的：进行中</option>
-            <option value="approved">我发起的：已完成</option>
-            <option value="rejected">我发起的：已拒绝</option>
-          </select>
+          <Link to="/new" className="modern-btn flex items-center gap-1 md:gap-2 text-sm md:text-base">
+            <Add sx={{ fontSize: { xs: 14, md: 16 } }} />
+            <span className="hidden sm:inline">新建报销单</span>
+            <span className="sm:hidden">新建</span>
+          </Link>
         </div>
-      </section>
 
-      
-
-      <section className="bg-white rounded-lg border border-primary/20 p-3">
-        <h3 className="text-sm text-gray-700 mb-[2px]">待办审批</h3>
-        <div className="space-y-[2px]">
-          {groupEntries.map(([key, list]) => {
-            const [createdBy, minute] = key.split('|')
-            const uname = userNameMap[createdBy] || createdBy
-            const open = openGroups[key] ?? true
-            // 简化：不再使用批量进度，无自动审批触发
-            return (
-              <Accordion key={key} expanded={openGroups[key] ?? false} onChange={(_, expanded) => setOpenGroups(prev => ({ ...prev, [key]: expanded }))}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%'}}>
-                    <div style={{display:'flex', alignItems:'center', gap:'2px'}}>
-                      <span className="font-medium">{uname} 的提交单子</span>
-                      <span className="text-xs text-gray-500">提交时间：{minute}</span>
-                      <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">批次 · 共{list.length}个单据</span>
-                    </div>
-                    {/* 去掉进入审批页面的链接 */}
-                   </div>
-                 </AccordionSummary>
-                 <AccordionDetails>
-                   <div className="space-y-[2px]">
-                    {list.map((b) => (
-                      <div key={b.id} className="rounded-lg border border-primary/20 p-3 cursor-pointer" onClick={() => navigate(`/bill/${b.id}`)}>
-                         <div className="flex justify-between">
-                           <span className="font-medium">{b.title} 编号：{displayNoOf(b)}</span>
-                           <span className="text-xs text-primary">本单由“{roleNameMap[b.steps[b.currentStepIndex]] || displayRoleLabel(b.steps[b.currentStepIndex])}”审批中</span>
-                         </div>
-                        <div className="text-xs text-gray-500 mt-[2px]">金额：¥{b.amount.toFixed(2)} · {b.category}</div>
-                        {/* 去掉按钮，点击卡片进入审批页面 */}
-                       </div>
-                     ))}
-                   </div>
-                 </AccordionDetails>
-               </Accordion>
-            )
-          })}
-          {groupEntries.length === 0 && <div className="text-xs text-gray-500">暂无待办</div>}
-        </div>
-      </section>
-
-      {(isApprover || /^approver[123]$/.test(user?.role)) && (
-        <section className="bg-white rounded-lg border border-amber-300 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">免审单据（本级）</div>
-            <button
-              onClick={() => setSkippedOpen(o => !o)}
-              className="px-2 py-1 rounded bg-white border border-primary/30 text-xs"
-            >{skippedOpen ? '收起' : `展开（${skipped.length}）`}</button>
+        {/* 统计卡片 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-3 md:p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-xs md:text-sm">待我审批</p>
+                <p className="text-xl md:text-2xl font-bold">{todoCount}</p>
+              </div>
+              <Assignment sx={{ fontSize: { xs: 24, md: 32 }, opacity: 0.8 }} />
+            </div>
           </div>
-              {skippedOpen && (
-                <div className="mt-[2px] space-y-[2px]">
-                  {skipped.length === 0 ? (
-                    <div className="text-xs text-gray-500">暂无免审单据</div>
-                  ) : (
-                    skipped.map(b => (
-                      <div
-                        key={b.id}
-                        className="rounded-lg border border-primary/20 p-3 bg-white cursor-pointer"
-                        onClick={() => { setDrawerBill(b); setDrawerOpen(true) }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{b.title}</div>
-                          <div className="text-xs text-gray-600">金额：¥{Number(b.amount||0).toFixed(2)}</div>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-[2px]">编号：{String(b.id)}</div>
-                        <div className="text-xs text-gray-500 mt-[2px]">点击查看详细内容</div>
+          
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-3 md:p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-xs md:text-sm">我的进行中</p>
+                <p className="text-xl md:text-2xl font-bold">{myInProgressCount}</p>
+              </div>
+              <Schedule sx={{ fontSize: { xs: 24, md: 32 }, opacity: 0.8 }} />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-3 md:p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-xs md:text-sm">我的已完成</p>
+                <p className="text-xl md:text-2xl font-bold">{myCompletedCount}</p>
+              </div>
+              <CheckCircle sx={{ fontSize: { xs: 24, md: 32 }, opacity: 0.8 }} />
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-3 md:p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-xs md:text-sm">待审总额</p>
+                <p className="text-lg md:text-xl font-bold">
+                  ¥{((() => {
+                    const isManager = ['admin', 'chairman', 'vice_chairman', 'gm', 'finance_manager'].includes(user?.role)
+                    const source = isManager ? allBills : mine
+                    // 仅计算审批中的金额
+                    return source
+                      .filter(b => {
+                        if (b.status !== 'pending') return false
+                        if (user?.role === 'gm') {
+                           const item = reasonItems.find(i => i.name === b.category)
+                           return item?.parentCategory === '工程费用'
+                        }
+                        if (user?.role === 'vice_chairman') {
+                           const item = reasonItems.find(i => i.name === b.category)
+                           return item?.parentCategory === '后勤费用'
+                        }
+                        return true
+                      })
+                      .reduce((sum, bill) => sum + (Number(bill.amount) || 0), 0)
+                  })() / 10000).toFixed(1)}万
+                </p>
+              </div>
+              <AttachMoney sx={{ fontSize: { xs: 24, md: 32 }, opacity: 0.8 }} />
+            </div>
+          </div>
+        </div>
+
+        {/* 财务统计图表 - 仅高级管理层可见 */}
+        {(user?.role === 'chairman' || user?.role === 'vice_chairman' || user?.role === 'gm' || user?.role === 'admin' || user?.role === 'finance_manager' || user?.role === 'accountant') && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            {/* 报销金额趋势 */}
+            <div className="modern-card p-4 md:p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">报销金额分布</h3>
+              <div className="space-y-3">
+                {['approved', 'pending', 'archived'].map((status, index) => {
+                  const statusBills = allBills.filter(bill => bill.status === status)
+                  const statusAmount = statusBills.reduce((sum, bill) => sum + (Number(bill.amount) || 0), 0)
+                  const totalAmount = allBills.reduce((sum, bill) => sum + (Number(bill.amount) || 0), 0)
+                  const percentage = totalAmount > 0 ? (statusAmount / totalAmount * 100) : 0
+                  const statusNames = { approved: '已审批', pending: '审批中', archived: '已归档' }
+                  const colors = { approved: 'from-green-400 to-green-600', pending: 'from-orange-400 to-orange-600', archived: 'from-gray-400 to-gray-600' }
+                  
+                  return (
+                    <div key={status} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700">{statusNames[status]}</span>
+                        <span className="text-xs text-gray-500">¥{(statusAmount / 10000).toFixed(1)}万</span>
                       </div>
-                    ))
-                  )}
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`bg-gradient-to-r ${colors[status]} h-2 rounded-full transition-all duration-300`}
+                          style={{ width: `${Math.min(percentage, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 报销类别统计 */}
+            <div className="modern-card p-4 md:p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">报销类别统计</h3>
+              <div className="space-y-3">
+                {(() => {
+                  let stats = []
+                  if (reasonItems.length > 0) {
+                    stats = reasonItems.filter(item => {
+                      if (user?.role === 'gm') return item.parentCategory === '工程费用'
+                      if (user?.role === 'vice_chairman') return item.parentCategory === '后勤费用'
+                      return true
+                    }).map(item => {
+                      const amount = allBills
+                        .filter(b => b.category === item.name)
+                        .reduce((sum, b) => sum + (Number(b.amount) || 0), 0)
+                      return { name: item.name, amount }
+                    })
+                  } else {
+                    const map = allBills.reduce((acc, bill) => {
+                      const category = bill.category || '其他'
+                      acc[category] = (acc[category] || 0) + (Number(bill.amount) || 0)
+                      return acc
+                    }, {})
+                    stats = Object.entries(map).map(([name, amount]) => ({ name, amount }))
+                  }
+                  
+                  // 按数据库定义的顺序显示（即八项事由的逻辑顺序），不按金额排序
+                  // stats.sort((a, b) => b.amount - a.amount)
+                  
+                  const totalAmount = allBills.reduce((sum, bill) => sum + (Number(bill.amount) || 0), 0)
+
+                  return stats.map((item, index) => {
+                    const percentage = totalAmount > 0 ? (item.amount / totalAmount * 100) : 0
+                    const colors = [
+                      'from-blue-400 to-blue-600',
+                      'from-purple-400 to-purple-600', 
+                      'from-pink-400 to-pink-600',
+                      'from-indigo-400 to-indigo-600',
+                      'from-teal-400 to-teal-600',
+                      'from-cyan-400 to-cyan-600',
+                      'from-emerald-400 to-emerald-600',
+                      'from-rose-400 to-rose-600'
+                    ]
+                    
+                    return (
+                      <div key={item.name} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                          <span className="text-xs text-gray-500">¥{(item.amount / 10000).toFixed(1)}万</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`bg-gradient-to-r ${colors[index % colors.length]} h-2 rounded-full transition-all duration-300`}
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 搜索栏 */}
+      <div className="modern-card p-3 md:p-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+        <div className="relative">
+          <Search sx={{ fontSize: { xs: 18, md: 20 } }} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="搜索报销单标题、类别或提交人..."
+            className="modern-input w-full pl-9 md:pl-10 text-sm md:text-base"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* 待审批列表 */}
+      {todoCount > 0 && (
+        <div className="modern-card animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-3">
+              <Assignment className="text-blue-500" sx={{ fontSize: 24 }} />
+              <h2 className="text-xl font-bold text-gray-800">待我审批 ({filteredTodos.length})</h2>
+            </div>
+          </div>
+          
+          <div className="divide-y">
+            {filteredTodos.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <Search sx={{ fontSize: 48, opacity: 0.3 }} className="mx-auto mb-2" />
+                <p>没有找到匹配的待审批项目</p>
+              </div>
+            ) : (
+              filteredTodos.map((bill, index) => (
+                <div key={bill.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-medium text-gray-800">{bill.title}</h3>
+                        {getStatusBadge(bill.status)}
+                        <span className="text-sm text-gray-500">
+                          {bill.category}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-6 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Person sx={{ fontSize: 14 }} />
+                          <span>{bill.submitterName}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <AttachMoney sx={{ fontSize: 14 }} />
+                          <span>¥{Number(bill.amount || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <CalendarToday sx={{ fontSize: 14 }} />
+                          <span>{bill.date}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Link 
+                      to={`/bill/${bill.id}`}
+                      className="modern-btn flex items-center gap-2"
+                    >
+                      <Visibility sx={{ fontSize: 16 }} />
+                      审批
+                    </Link>
+                  </div>
                 </div>
-              )}
-        </section>
+              ))
+            )}
+          </div>
+        </div>
       )}
 
-      <section className="bg-white rounded-lg border border-primary/20 p-3">
-        <div className="flex items-center justify-between mb-[2px]">
-          <h3 className="text-sm text-gray-700">我发起的（本周内）</h3>
-          <div className="flex items-center gap-[2px]">
-            <select value={timeBasis} onChange={(e)=>setTimeBasis(e.target.value)} className="text-xs rounded border px-2 py-1">
-              <option value="submitted">按提交时间</option>
-              <option value="bill">按票据日期</option>
-            </select>
-            <button onClick={() => setOlderOpen(true)} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
-              本周前（{olderMine.length}）
-            </button>
+      {/* 我的报销单 */}
+      <div className="modern-card animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="text-green-500" sx={{ fontSize: 24 }} />
+              <h2 className="text-xl font-bold text-gray-800">我的报销单</h2>
+            </div>
+            
+            {/* 筛选按钮 */}
+            <div className="flex gap-2">
+              {[
+                { key: 'all', label: '全部', count: mine.length },
+                { key: 'pending', label: '进行中', count: myInProgressCount },
+                { key: 'approved', label: '已完成', count: myCompletedCount }
+              ].map(filter => (
+                <button
+                  key={filter.key}
+                  onClick={() => setMineFilter(filter.key)}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    mineFilter === filter.key
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter.label} ({filter.count})
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="space-y-[2px]">
-          {recentMine.map((b) => (
-            <div key={b.id} className="rounded-lg border border-gray-200">
-              <div className="p-3 flex items-center justify-between cursor-pointer" onClick={() => toggleOpen(b.id)}>
-                <div className="flex items-center gap-[2px]">
-                  <span className="text-xs text-gray-500">编号：{displayNoOf(b)}</span>
-                  <span className="font-medium">{b.title}</span>
-                </div>
-                <div className="flex items-center gap-[2px]">
-                  <span className={`text-xs ${b.status === 'approved' || b.status === 'archived' ? 'text-green-600' : b.status === 'rejected' ? 'text-red-600' : b.status === 'rejected-modified' ? 'text-orange-600' : 'text-gray-600'}`}>{statusText(b.status)}</span>
-                  <span className="text-xs text-gray-500">{openIds[b.id] ? '收起' : '展开'}</span>
-                </div>
-              </div>
-              {openIds[b.id] && (
-                <div className="p-3 border-t border-gray-200 text-sm space-y-[2px] bg-white">
-                  <div className="text-xs text-gray-600">金额：¥{b.amount.toFixed(2)} · {b.category} · 日期：{b.date}</div>
-                  <div className="flex gap-[2px]">
-                    <Link to={`/bill/${b.id}`} className="rounded bg-primary text-white px-3 py-1 text-xs">查看详情</Link>
-                    {b.status !== 'archived' ? (
-                      confirmDeleteId === b.id ? (
-                        <>
-                          <button onClick={(e) => { e.stopPropagation(); onDeleteMyBill(b) }} className="rounded bg-red-600 text-white px-3 py-1 text-xs">确认删除</button>
-                          <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null) }} className="rounded bg-gray-100 text-gray-700 px-3 py-1 text-xs border border-gray-200">取消</button>
-                        </>
-                      ) : (
-                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id) }} className="rounded bg-red-50 text-red-700 px-3 py-1 text-xs border border-red-200">删除</button>
-                      )
-                    ) : (
-                      <span className="text-xs text-gray-400">已归档不可删除</span>
+        
+        <div className="divide-y">
+          {filteredMine.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <Assignment sx={{ fontSize: 48, opacity: 0.3 }} className="mx-auto mb-2" />
+              <p>暂无报销单记录</p>
+              <Link to="/new" className="modern-btn mt-4 inline-flex items-center gap-2">
+                <Add sx={{ fontSize: 16 }} />
+                创建第一个报销单
+              </Link>
+            </div>
+          ) : (
+            filteredMine.map((bill, index) => (
+              <div key={bill.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-medium text-gray-800">{bill.title}</h3>
+                      {getStatusBadge(bill.status)}
+                      <span className="text-sm text-gray-500">
+                        {bill.category}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-6 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <AttachMoney sx={{ fontSize: 14 }} />
+                        <span>¥{Number(bill.amount || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CalendarToday sx={{ fontSize: 14 }} />
+                        <span>{bill.date}</span>
+                      </div>
+                      {bill.status === 'approved' || bill.status === 'archived' ? (
+                        <div className="flex items-center gap-1">
+                          <CheckCircle sx={{ fontSize: 14 }} />
+                          <span>
+                            {(() => {
+                              try {
+                                const h = Array.isArray(bill.history) ? bill.history : JSON.parse(bill.history || '[]')
+                                const last = h.reverse().find(x => x.action === 'approve' || x.action === 'archive')
+                                return last ? `完成于 ${new Date(last.time).toLocaleDateString()}` : '已完成'
+                              } catch {
+                                return '已完成'
+                              }
+                            })()}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      to={`/bill/${bill.id}`}
+                      className="modern-btn-secondary flex items-center gap-2"
+                    >
+                      <Visibility sx={{ fontSize: 16 }} />
+                      查看
+                    </Link>
+                    
+                    {bill.status !== 'archived' && (
+                      <button
+                        onClick={() => onDeleteMyBill(bill)}
+                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Delete sx={{ fontSize: 16 }} />
+                      </button>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
-          {recentMine.length === 0 && (
-            <div className="text-xs text-gray-500">本周内暂无发起的票据（旧单请打开上方抽屉查看）</div>
+              </div>
+            ))
           )}
         </div>
-      </section>
-
-      {/* 抽屉实例 */}
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        {!drawerBill ? (
-          <div className="text-xs text-gray-500">无内容</div>
-        ) : (
-          <div className="space-y-[2px]">
-            <div className="text-sm font-medium">{drawerBill.title}</div>
-            <div className="text-xs text-gray-600">编号：{displayNoOf(drawerBill)}</div>
-            <div className="text-xs text-gray-600">金额：¥{Number(drawerBill.amount||0).toFixed(2)}</div>
-            <div className="text-xs text-gray-600">分类：{drawerBill.category}</div>
-            <div className="text-xs text-gray-600">日期：{drawerBill.date}</div>
-            <div className="text-xs text-gray-600">状态：{statusText(drawerBill.status)}</div>
-            {(() => {
-              const steps = Array.isArray(drawerBill.steps) ? drawerBill.steps : []
-              const idx = Number(drawerBill.currentStepIndex) || 0
-              return drawerBill.status === 'pending' && steps[idx] ? (
-                <div className="text-xs text-gray-600">本单由“{roleNameMap[steps[idx]] || displayRoleLabel(steps[idx])}”审批中</div>
-              ) : null
-            })()}
-            {(() => {
-              let imgs = Array.isArray(drawerBill.images) ? drawerBill.images : []
-              if (!Array.isArray(imgs)) { try { imgs = JSON.parse(drawerBill.images || '[]') } catch { imgs = [] } }
-              const API_BASE = getApiBase()
-              const API_HOST = getApiHost()
-              return imgs.length > 0 ? (
-                <div>
-                  <div className="text-xs text-gray-700 mb-[2px]">附件图片</div>
-                  <div className="grid grid-cols-3 gap-[2px]">
-                    {imgs.map((u, i) => (
-                      <img
-                        key={i}
-                        src={`${API_HOST}${u}`}
-                        alt={`票据图片${i+1}`}
-                        className="w-full h-20 object-cover rounded border cursor-zoom-in"
-                        onClick={() => setViewerSrc(`${API_HOST}${u}`)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : null
-            })()}
-            {(() => {
-              let hist = Array.isArray(drawerBill.history) ? drawerBill.history : []
-              if (!Array.isArray(hist)) { try { hist = JSON.parse(drawerBill.history || '[]') } catch { hist = [] } }
-              return (
-                <div className="space-y-[2px]">
-                  <div className="text-xs text-gray-700">审批记录</div>
-                  <div className="rounded border border-gray-200 p-2 bg-white">
-                    {hist.length === 0 && <div className="text-xs text-gray-500">暂无记录</div>}
-                    {hist.map((h, i) => (
-                      <div key={i} className="text-xs text-gray-700">
-                        <div className="flex justify-between">
-                          <span>{h.role ? (roleNameMap[h.role] || h.role) : (h.action === 'create' ? '系统' : '用户')} · {h.action === 'approve' ? '通过' : h.action === 'reject' ? '拒绝' : h.action === 'create' ? '创建' : h.action}</span>
-                          {h.time && <span className="text-gray-500">{new Date(h.time).toLocaleString()}</span>}
-                        </div>
-                        {h.action === 'reject' && (
-                          <div className="text-xs text-gray-600">{h.reason ? `理由：${h.reason}` : '无理由'}{h.demoteTo ? ` · 回退至：${roleAccountLabelMap[h.demoteTo] || h.demoteTo}` : ''}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-        )}
-      </Drawer>
-      {/* 图片预览层 */}
-      {viewerSrc && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center"
-          onClick={() => setViewerSrc(null)}
-        >
-          <img src={viewerSrc} alt="预览" className="max-w-[95vw] max-h-[85vh] rounded shadow" />
-        </div>
-      )}
-      {/* 一周以前的单子抽屉 */}
-      <Drawer open={olderOpen} onClose={() => setOlderOpen(false)}>
-        <div className="space-y-[2px]">
-          {olderMine.length === 0 && (
-            <div className="text-xs text-gray-500">暂无一周以前的单子</div>
-          )}
-          {olderMine.map((b) => (
-            <div key={b.id} className="rounded-lg border border-gray-200 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-[2px]">
-                  <span className="text-xs text-gray-500">编号：{displayNoOf(b)}</span>
-                  <span className="font-medium">{b.title}</span>
-                </div>
-                <span className={`text-xs ${b.status === 'approved' || b.status === 'archived' ? 'text-green-600' : b.status === 'rejected' ? 'text-red-600' : b.status === 'rejected-modified' ? 'text-orange-600' : 'text-gray-600'}`}>{statusText(b.status)}</span>
-              </div>
-              <div className="mt-[2px] text-xs text-gray-600">金额：¥{b.amount.toFixed(2)} · {b.category} · 日期：{b.date}</div>
-              <div className="mt-[2px] flex gap-[2px]">
-                <Link to={`/bill/${b.id}`} className="rounded bg-primary text-white px-3 py-1 text-xs">查看详情</Link>
-                {b.status !== 'archived' ? (
-                  confirmDeleteId === b.id ? (
-                    <>
-                      <button onClick={() => onDeleteMyBill(b)} className="rounded bg-red-600 text-white px-3 py-1 text-xs">确认删除</button>
-                      <button onClick={() => setConfirmDeleteId(null)} className="rounded bg-gray-100 text-gray-700 px-3 py-1 text-xs border border-gray-200">取消</button>
-                    </>
-                  ) : (
-                    <button onClick={() => setConfirmDeleteId(b.id)} className="rounded bg-red-50 text-red-700 px-3 py-1 text-xs border border-red-200">删除</button>
-                  )
-                ) : (
-                  <span className="text-xs text-gray-400">已归档不可删除</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Drawer>
       </div>
-    )
+    </div>
+  )
 }

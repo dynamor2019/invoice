@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/Home.jsx",
+  "updated_at": "2026-04-09T09:45:41",
+  "line_count": 559,
+  "file_hash": "a447ca4ebce621f8d6f8712f8a0e6ffd1e615e98726b46dca25b2aa2e86df2c6",
+  "entries": [
+    {
+      "feature": "Home page state bootstrap and filters",
+      "line": 27
+    },
+    {
+      "feature": "Bill list fetch effect and normalization",
+      "line": 50
+    },
+    {
+      "feature": "Computed filtered bill collections",
+      "line": 132
+    },
+    {
+      "feature": "Delete bill workflow",
+      "line": 148
+    },
+    {
+      "feature": "Role-specific todo and list rendering",
+      "line": 186
+    }
+  ]
+}

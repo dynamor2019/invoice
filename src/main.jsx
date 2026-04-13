@@ -15,9 +15,13 @@ import { getCurrentUser, seedUsers } from './store/users'
 import Stats from './pages/Stats.jsx'
 import HierarchyEditor from './pages/HierarchyEditor.jsx'
 import Projects from './pages/Projects.jsx'
+import ProjectMaterials from './pages/ProjectMaterials.jsx'
 import SupplierLibrary from './pages/SupplierLibrary.jsx'
+import SupplierContracts from './pages/SupplierContracts.jsx'
+
+
  
-// WeChat (微信) 内置浏览器检测：为 html 添加标记类（支持 ?wechat=1/0 模拟）
+// WeChat (寰俊) 鍐呯疆娴忚鍣ㄦ娴嬶細涓?html 娣诲姞鏍囪绫伙紙鏀寔 ?wechat=1/0 妯℃嫙锛?
 try {
   const ua = typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : ''
   let isWeChat = /MicroMessenger/i.test(ua)
@@ -49,8 +53,10 @@ try {
             <Route index element={<AuthIndex />} />
             <Route path="home" element={<RequireUser><RequireNonAdmin><Home /></RequireNonAdmin></RequireUser>} />
             <Route path="projects" element={<RequireUser><RequireNonAdmin><Projects /></RequireNonAdmin></RequireUser>} />
+            <Route path="project-materials/:projectId" element={<RequireUser><RequireNonAdmin><ProjectMaterials /></RequireNonAdmin></RequireUser>} />
             <Route path="supplier-library" element={<RequireUser><RequireNonAdmin><SupplierLibrary /></RequireNonAdmin></RequireUser>} />
-            {/* 取消单独的审批页面，统一在详情页处理 */}
+            <Route path="supplier-contracts" element={<RequireUser><RequireNonAdmin><SupplierContracts /></RequireNonAdmin></RequireUser>} />
+            {/* 鍙栨秷鍗曠嫭鐨勫鎵归〉闈紝缁熶竴鍦ㄨ鎯呴〉澶勭悊 */}
             <Route path="bill/:id" element={<RequireUser><RequireNonAdmin><BillDetail /></RequireNonAdmin></RequireUser>} />
             <Route path="new" element={<RequireUser><RequireNonAdmin><NewBill /></RequireNonAdmin></RequireUser>} />
             <Route path="archive" element={<RequireUser><RequireAccountant><Archive /></RequireAccountant></RequireUser>} />
@@ -89,5 +95,5 @@ function RequireNonAdmin({ children }) {
 
 function RequireAccountant({ children }) {
   const u = getCurrentUser()
-  return u?.role === 'accountant' ? children : <Navigate to="/home" replace />
+  return (u?.role === 'accountant' || u?.role === 'finance_manager') ? children : <Navigate to="/projects" replace />
 }

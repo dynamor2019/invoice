@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/HierarchyEditor.jsx",
+  "updated_at": "2026-04-09T09:45:40",
+  "line_count": 234,
+  "file_hash": "a9a56bc7c4bffa22e60733acfa63db0708890ebf5d16258cf5e6b4e5cc2a1d21",
+  "entries": [
+    {
+      "feature": "Hierarchy editor state bootstrap",
+      "line": 10
+    },
+    {
+      "feature": "Node add remove and text edit actions",
+      "line": 42
+    },
+    {
+      "feature": "Reason hierarchy load effect",
+      "line": 132
+    },
+    {
+      "feature": "Persist hierarchy to server action",
+      "line": 150
+    },
+    {
+      "feature": "Tree editor rendering and controls",
+      "line": 176
+    }
+  ]
+}

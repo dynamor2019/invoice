@@ -1,0 +1,28 @@
+{
+  "file": "src/pages/SupplierContracts.jsx",
+  "updated_at": "2026-04-09T09:45:49",
+  "line_count": 464,
+  "file_hash": "f0f90adad3b10fed6f05a3772fe2955c1d5a9e333b09290c87954a669ecc1c15",
+  "entries": [
+    {
+      "feature": "Supplier contracts page bootstrap",
+      "line": 5
+    },
+    {
+      "feature": "Contracts load and permission-gated fetch",
+      "line": 34
+    },
+    {
+      "feature": "Create update submit workflow",
+      "line": 76
+    },
+    {
+      "feature": "Edit and delete workflow",
+      "line": 102
+    },
+    {
+      "feature": "List table and contract form rendering",
+      "line": 156
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "file": "src/pages/Projects.jsx",
+  "updated_at": "2026-04-10T21:33:30",
+  "line_count": 1876,
+  "file_hash": "37b44f2036a654f50788110fe6d74ff634a9432227ad2e4303c717d19f7e53d7",
+  "entries": [
+    {
+      "feature": "loadProjects",
+      "line": 166
+    },
+    {
+      "feature": "handleContractTemplateUpload",
+      "line": 213
+    },
+    {
+      "feature": "handleDelete",
+      "line": 291
+    },
+    {
+      "feature": "handleMaterialDelete",
+      "line": 381
+    },
+    {
+      "feature": "handleContractEdit",
+      "line": 458
+    },
+    {
+      "feature": "addProjectItem",
+      "line": 556
+    },
+    {
+      "feature": "selectMaterialSuggestion",
+      "line": 629
+    },
+    {
+      "feature": "getStatusBadge",
+      "line": 676
+    }
+  ]
+}
