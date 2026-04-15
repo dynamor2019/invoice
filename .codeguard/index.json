@@ -14,14 +14,14 @@
     ],
     "src/pages/Projects.jsx": [
       {
-        "version": 16,
-        "feature": "persist-supplier-contact-fields",
-        "timestamp": "2026-04-12T16:58:42",
-        "hash": "b448718db8b6260fd3606e4af85bb79cdf720aae5e53cdb443c48993b9b374bd",
-        "backup_path": "C:/handv/.codeguard/versions/Projects.jsx.b8dc899675cd.v16.bak",
+        "version": 26,
+        "feature": "前序修复归档",
+        "timestamp": "2026-04-15T10:26:42",
+        "hash": "777ba5ce89993dda490b64292157c77b660aa52a6a7bbded2640344d624ac5af",
+        "backup_path": "C:/handv/.codeguard/versions/Projects.jsx.b8dc899675cd.v26.bak",
         "original_path": "C:/handv/src/pages/Projects.jsx",
         "file_key": "src/pages/Projects.jsx",
-        "reason": "sync checkpoint before minimal frontend submit patch"
+        "reason": "项目管理列表增加剩余金额显示并支持查看详情"
       }
     ],
     "src/pages/Stats.jsx": [
@@ -62,14 +62,14 @@
     ],
     "server/index.cjs": [
       {
-        "version": 12,
-        "feature": "fix-template-upload-ebusy",
-        "timestamp": "2026-04-12T20:06:08",
-        "hash": "ff74df8db0675e3e55662a56cf00ca49953784ccf7d969eedb19d96f235ca1f2",
-        "backup_path": "C:/handv/.codeguard/versions/index.cjs.546d8ea40577.v12.bak",
+        "version": 26,
+        "feature": "前序修复归档",
+        "timestamp": "2026-04-14T17:39:51",
+        "hash": "1647b2c797a19d4d5766b053b9e1a3013967e69e6010b270b0e84898d2271433",
+        "backup_path": "C:/handv/.codeguard/versions/index.cjs.546d8ea40577.v26.bak",
         "original_path": "C:/handv/server/index.cjs",
         "file_key": "server/index.cjs",
-        "reason": "checkpoint before changing template upload storage strategy"
+        "reason": "采购合同导出模板映射、material_list表格注入、500与误删正文修复"
       }
     ],
     "src/main.jsx": [
@@ -83,16 +83,29 @@
         "file_key": "src/main.jsx",
         "reason": "checkpoint after removing global alert interceptor"
       }
+    ],
+    "src/pages/SupplierLibrary.jsx": [
+      {
+        "version": 2,
+        "feature": "前序修复归档",
+        "timestamp": "2026-04-14T17:39:51",
+        "hash": "055a2029ca4fd4f8a588a4a9110d9778e5826fb0c63519385f5e51961302f0ff",
+        "backup_path": "C:/handv/.codeguard/versions/SupplierLibrary.jsx.8ac22986dd7c.v2.bak",
+        "original_path": "C:/handv/src/pages/SupplierLibrary.jsx",
+        "file_key": "src/pages/SupplierLibrary.jsx",
+        "reason": "供应商库移除重复合同管理入口"
+      }
     ]
   },
   "last_version": {
     "src/pages/Settings.jsx": 1,
-    "src/pages/Projects.jsx": 16,
+    "src/pages/Projects.jsx": 26,
     "src/pages/Stats.jsx": 1,
     "src/store/http.js": 1,
     "src/store/projects.js": 1,
-    "server/index.cjs": 12,
-    "src/main.jsx": 1
+    "server/index.cjs": 26,
+    "src/main.jsx": 1,
+    "src/pages/SupplierLibrary.jsx": 2
   },
   "current_state": {
     "src/pages/Settings.jsx": {
@@ -104,12 +117,12 @@
       "reason": "Auto snapshot after confirm: Fix unreadable white-on-white submit button by using explicit blue button style with responsive width"
     },
     "src/pages/Projects.jsx": {
-      "timestamp": "2026-04-12T16:58:42",
-      "feature": "persist-supplier-contact-fields",
-      "hash": "b448718db8b6260fd3606e4af85bb79cdf720aae5e53cdb443c48993b9b374bd",
+      "timestamp": "2026-04-15T10:26:42",
+      "feature": "前序修复归档",
+      "hash": "777ba5ce89993dda490b64292157c77b660aa52a6a7bbded2640344d624ac5af",
       "path": "C:/handv/src/pages/Projects.jsx",
       "source": "snapshot",
-      "reason": "sync checkpoint before minimal frontend submit patch"
+      "reason": "项目管理列表增加剩余金额显示并支持查看详情"
     },
     "src/pages/Stats.jsx": {
       "timestamp": "2026-04-09T15:26:47",
@@ -136,12 +149,12 @@
       "reason": "Auto snapshot after confirm: use PUT when updating supplier contract"
     },
     "server/index.cjs": {
-      "timestamp": "2026-04-12T20:06:08",
-      "feature": "fix-template-upload-ebusy",
-      "hash": "ff74df8db0675e3e55662a56cf00ca49953784ccf7d969eedb19d96f235ca1f2",
+      "timestamp": "2026-04-14T17:39:51",
+      "feature": "前序修复归档",
+      "hash": "1647b2c797a19d4d5766b053b9e1a3013967e69e6010b270b0e84898d2271433",
       "path": "C:/handv/server/index.cjs",
       "source": "snapshot",
-      "reason": "checkpoint before changing template upload storage strategy"
+      "reason": "采购合同导出模板映射、material_list表格注入、500与误删正文修复"
     },
     "src/main.jsx": {
       "timestamp": "2026-04-12T16:49:52",
@@ -150,6 +163,14 @@
       "path": "C:/handv/src/main.jsx",
       "source": "snapshot",
       "reason": "checkpoint after removing global alert interceptor"
+    },
+    "src/pages/SupplierLibrary.jsx": {
+      "timestamp": "2026-04-14T17:39:51",
+      "feature": "前序修复归档",
+      "hash": "055a2029ca4fd4f8a588a4a9110d9778e5826fb0c63519385f5e51961302f0ff",
+      "path": "C:/handv/src/pages/SupplierLibrary.jsx",
+      "source": "snapshot",
+      "reason": "供应商库移除重复合同管理入口"
     }
   },
   "protected_features": {
@@ -172,7 +193,16 @@
       "fix-material-save-garbled-text",
       "materials-ui-data-fix",
       "pre-fix",
-      "persist-supplier-contact-fields"
+      "persist-supplier-contact-fields",
+      "template-upload-hover-parameter-guide",
+      "hover-params-supplier-agent-receiver-alignment",
+      "调整MIS字号层级与入口精简",
+      "MIS字号层级调整与入口精简",
+      "前序修复归档",
+      "修复项目管理页乱码文案",
+      "修复项目管理总览区域乱码文案",
+      "修复项目编辑弹窗乱码文案",
+      "项目列表新增剩余金额与详情查看"
     ],
     "src/pages/Stats.jsx": [
       "restore byPersonTotals aggregation in admin stats"
@@ -194,10 +224,28 @@
       "persist-supplier-contact-fields",
       "fix-template-upload-404",
       "export-template-fallback-replacer",
-      "fix-template-upload-ebusy"
+      "fix-template-upload-ebusy",
+      "fix-export-placeholder-replacement",
+      "contract-schema-agent-supplier-bank-alignment",
+      "supplier-contract-full-save-fields",
+      "supplier-contract-save-fix-round2",
+      "template-selection-debug-and-fallback",
+      "fix-legacy-marker-overreplace-on-uploaded-template",
+      "prefer-current-docx-template-routing",
+      "material-list-table-text-without-supplier",
+      "修复导出采购明细表格渲染与数据填充",
+      "修复导出500常量声明顺序",
+      "修复导出表格序号列缩进异常",
+      "修复表格注入跨段匹配误删内容",
+      "采购明细表格导出修复",
+      "前序修复归档"
     ],
     "src/main.jsx": [
       "remove-alert-wrapper"
+    ],
+    "src/pages/SupplierLibrary.jsx": [
+      "供应商库合同管理入口去重",
+      "前序修复归档"
     ]
   },
   "index_state": {
@@ -396,69 +444,49 @@
     },
     "server/index.cjs": {
       "source": "sidecar",
-      "updated_at": "2026-04-09T09:45:36",
-      "file_hash": "0b6e9306d5dccac3a72205ccc3bbdc67439088ce262809ce0436f1ef13147d43",
-      "line_count": 2044,
+      "updated_at": "2026-04-13T20:20:12",
+      "file_hash": "db5cf900e519906b429b1b50d8051296c4105d92b52654c40fbd8bc46be3b2dc",
+      "line_count": 2421,
       "entry_signatures": [
         {
-          "feature": "App bootstrap and middleware setup",
-          "line": 15,
-          "signature": "6bb74df5ea45"
+          "feature": "return markerMap",
+          "line": 88,
+          "signature": "2ca61d385f79"
         },
         {
-          "feature": "Database helpers and bill normalization",
-          "line": 40,
-          "signature": "9e4591a28782"
+          "feature": "break",
+          "line": 100,
+          "signature": "758cf8197238"
         },
         {
-          "feature": "Schema bootstrap and initial seed",
-          "line": 84,
-          "signature": "33e7a8ee6aec"
+          "feature": "images TEXT",
+          "line": 134,
+          "signature": "ebe213bdaa46"
         },
         {
-          "feature": "Authentication and profile endpoints",
-          "line": 324,
-          "signature": "698c71cc16e7"
+          "feature": "updatedAt TEXT",
+          "line": 164,
+          "signature": "672e0cdab296"
         },
         {
-          "feature": "User and company setting endpoints",
-          "line": 497,
-          "signature": "25f343d3c2c6"
+          "feature": "diff TEXT",
+          "line": 299,
+          "signature": "c02340428eff"
         },
         {
-          "feature": "Bill workflow endpoints submit approve reject",
-          "line": 789,
-          "signature": "ba8a6c1ea87f"
+          "feature": "SELECT c.name as parentName",
+          "line": 1265,
+          "signature": "9d929a80aa3f"
         },
         {
-          "feature": "Reason hierarchy CRUD endpoints",
-          "line": 965,
-          "signature": "7c5096a204f9"
+          "feature": "return null",
+          "line": 1625,
+          "signature": "8b7d891bce32"
         },
         {
-          "feature": "Project and attachment endpoints",
-          "line": 1316,
-          "signature": "19880e159546"
-        },
-        {
-          "feature": "Supplier and contract endpoints",
-          "line": 1475,
-          "signature": "cb1ea0a138ab"
-        },
-        {
-          "feature": "Project materials import export endpoints",
-          "line": 1697,
-          "signature": "4839cbbe9a7b"
-        },
-        {
-          "feature": "Supplier products and payments endpoints",
-          "line": 1892,
-          "signature": "fe3d5d458d16"
-        },
-        {
-          "feature": "Supplier evaluation endpoints and server startup",
-          "line": 1991,
-          "signature": "c7996c815a5f"
+          "feature": "evaluatedAt TEXT",
+          "line": 2261,
+          "signature": "606a4b79948c"
         }
       ]
     },
@@ -819,6 +847,54 @@
           "feature": "Supplier detail drawer and list rendering",
           "line": 297,
           "signature": "7fd71cd0c850"
+        }
+      ]
+    },
+    "server/data/uploads/contract-templates/current.docx": {
+      "source": "sidecar",
+      "updated_at": "2026-04-13T19:38:26",
+      "file_hash": "5234cfa7db7f132149ecbf969a91142a55b440a0c9441c0a1716987eb19729f2",
+      "line_count": 984,
+      "entry_signatures": [
+        {
+          "feature": "PK\u0003\u0004\u0014\u0000\u0000\u0000\b\u0000�\\q���\u0001\u0000\u0000* \u0000\u0000\u0013\u0000\u0000\u0000[Content_Types].xmlŖ�n�0\u0010E���\u000f���\u0018...",
+          "line": 1,
+          "signature": "544b8ae35e74"
+        },
+        {
+          "feature": "����\u0012a���P���H\u0018<��l4�����E��/߸���$�`qmf<\u0012��M\u0002\u000f;�����?��\u001a#",
+          "line": 139,
+          "signature": "729c8ff77cdc"
+        },
+        {
+          "feature": "�\u0001����\u00179\u0003����S,� v��",
+          "line": 280,
+          "signature": "384ca97fd9b0"
+        },
+        {
+          "feature": "Q�Sa��~�G",
+          "line": 424,
+          "signature": "79bfaa19997f"
+        },
+        {
+          "feature": "\u0013(��ߚ�_PK\u0003\u0004\u0014\u0000\u0000\u0000\b\u0000�\\}��&�\u0002\u0000\u0000",
+          "line": 561,
+          "signature": "466218687168"
+        },
+        {
+          "feature": "E��>sć�g�el�I\u0003�\u000f -�\u0018$E�I�R$yg9��L�\"��&��5�",
+          "line": 702,
+          "signature": "facd63012d9e"
+        },
+        {
+          "feature": "<�N",
+          "line": 841,
+          "signature": "29c0fc96926a"
+        },
+        {
+          "feature": "\u0000\u0000\u0012\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000�\u0001+�\u0000\u0000word/fontTable.xmlPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\b\u0000�\\g��T�\u0001\u0000\u0000\u0012...",
+          "line": 984,
+          "signature": "89244a256a5e"
         }
       ]
     }
