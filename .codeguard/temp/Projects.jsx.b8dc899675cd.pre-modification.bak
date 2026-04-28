@@ -249,26 +249,26 @@ export default function Projects() {
   const loadProjects = async () => {
     try {
       const data = await listProjects()
-      console.log('加载到的项目:', data)
+      console.log('鍔犺浇鍒扮殑椤圭洰:', data)
       setProjects(data)
       if (data.length > 0 && !selectedProject && (isProcurementManager || isCostManager || isAdmin)) {
-        console.log('自动选择第一个项目:', data[0])
+        console.log('鑷姩閫夋嫨绗竴涓」鐩?', data[0])
         setSelectedProject(data[0])
       }
     } catch (e) {
-      console.error('加载项目失败:', e)
+      console.error('鍔犺浇椤圭洰澶辫触:', e)
       alert(`鍔犺浇椤圭洰澶辫触: ${e.message}`)
     }
   }
 
   const loadMaterials = async (projectId) => {
     try {
-      console.log('正在加载项目材料:', projectId)
+      console.log('姝ｅ湪鍔犺浇椤圭洰鏉愭枡:', projectId)
       const data = await listMaterials(projectId)
-      console.log('加载到的材料数量:', data.length)
+      console.log('鍔犺浇鍒扮殑鏉愭枡鏁伴噺:', data.length)
       setMaterials(data)
     } catch (e) {
-      console.error('加载材料失败:', e)
+      console.error('鍔犺浇鏉愭枡澶辫触:', e)
       alert(`鍔犺浇鏉愭枡澶辫触: ${e.message}`)
     }
   }
@@ -278,7 +278,7 @@ export default function Projects() {
       const data = await listSupplierContracts(projectId ? { projectId } : {})
       setContracts(Array.isArray(data) ? data : [])
     } catch (e) {
-      console.error('加载采购合同失败:', e)
+      console.error('鍔犺浇閲囪喘鍚堝悓澶辫触:', e)
       setContracts([])
     }
   }
@@ -331,7 +331,7 @@ export default function Projects() {
       const data = await getSupplierContractTemplate()
       setContractTemplateMeta(data || null)
     } catch (e) {
-      console.error('加载合同模板失败:', e)
+      console.error('鍔犺浇鍚堝悓妯℃澘澶辫触:', e)
       setContractTemplateMeta(null)
     }
   }
@@ -538,7 +538,7 @@ export default function Projects() {
     try {
       await deleteMaterial(selectedProject.id, material.id)
       alert('鏉愭枡鍒犻櫎鎴愬姛')
-      // 重新加载材料列表
+      // 閲嶆柊鍔犺浇鏉愭枡鍒楄〃
       await loadMaterials(selectedProject.id)
     } catch (e) {
       alert(`鍒犻櫎澶辫触: ${e.message}`)
@@ -665,7 +665,7 @@ export default function Projects() {
       bankAccount: contract.bankAccount || '',
       status: contract.status || 'draft'
     })
-    // 加载项目清单条目
+    // 鍔犺浇椤圭洰娓呭崟鏉＄洰
     setProjectItems(contract.projectItems || [])
     setShowContractForm(true)
   }

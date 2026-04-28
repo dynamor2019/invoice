@@ -1,14 +1,13 @@
 import { getReasons } from '../store/reasons'
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { getCurrentUser, setCurrentUser } from '../store/users'
+import { getCurrentUser } from '../store/users'
 import { seedBills, getTodosByRole, getBills, deleteBill, approveBill } from '../store/bills'
 import { getUsers, getApprovalOrder } from '../store/users'
 import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Drawer from '../components/Drawer'
 import { getApiBase, getApiHost } from '../store/api'
-import * as http from '../store/http'
 import { getApprovalThresholds } from '../store/settings'
 import { 
   Home as HomeIcon, 
